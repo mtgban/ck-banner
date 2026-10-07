@@ -1,13 +1,14 @@
 // Puts a year picker and Download CSV on Card Kingdom's order and selling
 // history pages.
 //
-// The click walks the whole list from page 1 (history.js) and saves the
-// chosen year's shipped or completed, paid orders. A walk that was refused
-// or cancelled saves nothing, and neither does one that found no orders.
+// The click walks the list from page 1 (history.js) and saves the chosen
+// year's shipped or completed, paid orders. A walk that was refused or
+// cancelled saves no file, and neither does one that found no orders.
 //
-// A saved file is kept (store.js). The next click reads page 1 alone, and
-// while page 1 is as it was the kept file downloads at once; the button then
-// offers Rebuild, which always reads the list again.
+// What a whole walk found is kept (store.js), no orders included, so it
+// replaces what was kept before. The next click reads page 1 alone, and
+// while page 1 is as it was the kept answer is given at once; the button
+// then offers Rebuild, which always reads the list again.
 
 (function (CKB) {
   "use strict";
@@ -92,22 +93,26 @@
     return String(at.getHours()).padStart(2, "0") + ":" + String(at.getMinutes()).padStart(2, "0");
   }
 
-  // finish saves the walk's file and answers with what is kept of it, or
-  // with null when there was nothing to save.
+  function none(y) {
+    return page.none + (y === null ? "" : " in " + y);
+  }
+
+  // finish saves the walk's file, when it found orders, and answers with
+  // what is kept of it: a walk that found none is kept as that answer.
   function finish(walked, y) {
     var picked = CKB.pick(walked.rows, page.kind, y);
-    if (!picked.rows.length) {
-      panel.word(page.kind);
-      panel.fail(page.none + (y === null ? "" : " in " + y) + "; read " + pagesRead(walked) + ".");
-      return null;
-    }
     var name = "ck-" + page.kind + "-" + (y === null ? "all" : y) + ".csv";
-    var csv = CKB.toCSV(picked.rows);
-    CKB.download(csv, name);
-    panel.word(picked.rows.length + " " + page.done);
-    panel.mark("done");
-    panel.recap(recap(name, picked, walked));
-    var file = { name: name, csv: csv, count: picked.rows.length, read: pagesRead(walked) };
+    var file = { name: name, csv: "", count: picked.rows.length, read: pagesRead(walked) };
+    if (picked.rows.length) {
+      file.csv = CKB.toCSV(picked.rows);
+      CKB.download(file.csv, name);
+      panel.word(picked.rows.length + " " + page.done);
+      panel.mark("done");
+      panel.recap(recap(name, picked, walked));
+    } else {
+      panel.word(page.kind);
+      panel.fail(none(y) + "; read " + pagesRead(walked) + ".");
+    }
     // Every year's file keeps its rows too, so any one year can be cut from it.
     if (y === null) {
       file.rows = picked.rows.map(function (row) {
@@ -124,17 +129,21 @@
     return file;
   }
 
-  // served hands out a kept file, and turns the button into Rebuild.
-  function served(file) {
+  // served gives the kept answer for y, and turns the button into Rebuild.
+  function served(file, y) {
+    var since = " as built at " + clock(file.builtAt) + " from " + file.read +
+      ": page 1 has not changed since. Rebuild reads the list again.";
+    rebuild = true;
+    go.textContent = "Rebuild";
+    if (!file.count) {
+      panel.word(page.kind);
+      panel.fail(none(y) + "," + since);
+      return;
+    }
     CKB.download(file.csv, file.name);
     panel.word(file.count + " " + page.done);
     panel.mark("done");
-    panel.recap(
-      "Saved " + file.name + " again, as built at " + clock(file.builtAt) + " from " + file.read +
-      ": page 1 has not changed since. Rebuild reads the list again."
-    );
-    rebuild = true;
-    go.textContent = "Rebuild";
+    panel.recap("Saved " + file.name + " again," + since);
   }
 
   // cut hands out one year from the kept file of every year, with no walk.
@@ -147,7 +156,7 @@
     go.textContent = "Rebuild";
     if (!rows.length) {
       panel.word(page.kind);
-      panel.fail(page.none + " in " + y + ", in " + built + ".");
+      panel.fail(none(y) + ", in " + built + ".");
       return;
     }
     var name = "ck-" + page.kind + "-" + y + ".csv";
@@ -192,16 +201,22 @@
             if (stale()) {
               return null;
             }
+            // The newer of the year's own answer and the every-year file
+            // is given, so neither hides a later read of the list. Both
+            // answer for the year by its rule: an every-year file built once
+            // the year was over is as final for it as the year's own.
             var now = Date.now();
-            if (!force && CKB.usableFile(found[0], signature, y, now)) {
-              panel.busy(false);
-              served(found[0]);
-              return null;
-            }
-            var all = found[1];
-            if (!force && CKB.usableFile(all, signature, null, now) && Array.isArray(all.rows)) {
+            var own = !force && CKB.usableFile(found[0], signature, y, now) ? found[0] : null;
+            var all = !force && CKB.usableFile(found[1], signature, y, now) && Array.isArray(found[1].rows) ?
+              found[1] : null;
+            if (all && (!own || all.builtAt > own.builtAt)) {
               panel.busy(false);
               cut(all, y);
+              return null;
+            }
+            if (own) {
+              panel.busy(false);
+              served(own, y);
               return null;
             }
             return CKB.walkHistory(page.kind, base, {
@@ -223,18 +238,16 @@
         panel.busy(false);
         rebuild = false;
         go.textContent = "Download CSV";
+        // A whole walk replaces what is kept, even one that found nothing.
         var file = finish(walked, y);
-        // Only a whole, successful walk replaces what is kept.
-        if (file) {
-          file.v = CKB.FILE_VERSION;
-          file.signature = signature;
-          file.builtAt = Date.now();
-          store
-            .then(function (s) {
-              return s.put(key, file);
-            })
-            .catch(function () {});
-        }
+        file.v = CKB.FILE_VERSION;
+        file.signature = signature;
+        file.builtAt = Date.now();
+        store
+          .then(function (s) {
+            return s.put(key, file);
+          })
+          .catch(function () {});
       })
       .catch(function (err) {
         if (stale()) {

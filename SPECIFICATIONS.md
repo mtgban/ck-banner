@@ -291,16 +291,19 @@ that names the account is read or kept.
 *Download CSV* reads page 1 alone first. While its signature is the kept
 file's, the kept file downloads at once, the tooltip says when it was built
 and from how many pages, and the button becomes *Rebuild*, which always reads
-the list again. Otherwise the walk starts from that same page 1 and the file
-it saves replaces the kept one; a refused, cancelled or empty walk keeps
-nothing and leaves the kept file as it was. A change further down the list
+the list again. Otherwise the walk starts from that same page 1 and what it
+found replaces what was kept: a file, or that the year holds no orders,
+which is then said again, with *Rebuild*, while page 1 holds. A refused or
+cancelled walk keeps nothing and leaves the kept file as it was. A change further down the list
 does not move the signature, so a file holding this year's orders, or every
 year's, is used for a day and then built again; a past year's file is used
 for as long as page 1 holds.
 
 The every-year file also keeps its rows (the five columns and each row's
-year), so while it may be used any single year is cut from it with no walk
-beyond page 1; *Rebuild* then reads that year from the list.
+year), so any single year is cut from it with no walk beyond page 1, while
+it is newer than the year's own file and the rule above would let it stand
+for that year: a day, or for good when it was built once the year was over.
+*Rebuild* then reads that year from the list.
 
 ## 13. The panel
 
