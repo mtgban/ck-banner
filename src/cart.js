@@ -23,7 +23,6 @@ globalThis.CKB = globalThis.CKB || {};
   };
 
   var CONDITIONS = ["NM", "EX", "VG", "G"];
-  var SUBTOTAL = /^Subtotal: (\$[\d,]+\.\d{2})$/;
 
   function text(node) {
     return node ? node.textContent.replace(/\s+/g, " ").trim() : "";
@@ -119,12 +118,5 @@ globalThis.CKB = globalThis.CKB || {};
       lines.push(readLine(wrappers[i], found, side));
     }
     return lines;
-  };
-
-  // cartSubtotal is the header's Subtotal in cents, or null when the page
-  // does not print one: the sum the lines' totals must come to.
-  CKB.cartSubtotal = function (doc) {
-    var m = SUBTOTAL.exec(text(doc.querySelector(".header-subtotal")));
-    return m ? CKB.cents(m[1]) : null;
   };
 })(globalThis.CKB);

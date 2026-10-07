@@ -11,7 +11,7 @@
 import { test, expect, describe } from "bun:test";
 import { readFileSync, readdirSync } from "fs";
 import { Window } from "happy-dom";
-import { CKB, text } from "./helpers.js";
+import { CKB, text, cartSubtotal } from "./helpers.js";
 
 const SAVED = { purchases: process.env.CK_SAVED_ORDERS, sales: process.env.CK_SAVED_SALES };
 const CARTS = { sell: process.env.CK_SAVED_SELLCART, buy: process.env.CK_SAVED_BUYCART };
@@ -77,7 +77,7 @@ for (const side of ["sell", "buy"]) {
 
     test.skipIf(!saved)("its line totals come to its subtotal", () => {
       const doc = savedPage(saved);
-      expect(read(doc).reduce((cents, l) => cents + l.total, 0)).toBe(CKB.cartSubtotal(doc));
+      expect(read(doc).reduce((cents, l) => cents + l.total, 0)).toBe(cartSubtotal(doc));
     });
 
     test.skipIf(!saved)("left none of its items or line ids in a fixture", () => {
