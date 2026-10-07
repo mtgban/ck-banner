@@ -38,3 +38,16 @@ jobs:
               sys.exit("manifest names missing files: " + ", ".join(missing))
           print(f"manifest names {len(named)} files, all present")
           EOF
+
+  mutate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: bun install
+        run: bun install --frozen-lockfile
+
+      - name: bun run mutate
+        run: bun run mutate

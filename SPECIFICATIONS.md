@@ -166,7 +166,9 @@ date's. A completed sale with no Received date refuses the export.
 
 ## 10. The walk
 
-- One page at a time, a pause before each, from page 1 whatever page is open.
+- One page at a time, a pause of 1.2 s before each after the first, from
+  page 1 whatever page is open. A page that has not answered in 30 s fails
+  the walk.
 - Page 1 fixes the list's geometry: the total from `of N results`, 25 a page,
   and a page count that must equal both the final-page link and
   `ceil(total / 25)`. Every later page must report the same; if it does not,
@@ -183,8 +185,8 @@ date's. A completed sale with no Received date refuses the export.
 
 ## 11. The CSV
 
-The same file as go-mtgban's CK history tool, so spreadsheets built on it keep
-working:
+Five columns whose header is a contract, since spreadsheets built on the file
+read them by name:
 
 | Column | Purchases | Sales |
 |--------|-----------|-------|
@@ -195,7 +197,9 @@ working:
 | `Amount` | as printed (`$123.45`) | as printed |
 
 Named `ck-purchases-<year>.csv` or `ck-sales-<year>.csv` (`all` for every
-year), CRLF line ends, a trailing newline, rows in CK's order. No address and
+year), rows in CK's order. The bytes are what Go's `csv.Writer` writes for the
+same rows: a value is quoted only when it holds a comma, a quote or a line
+break, a quote is doubled, and every row ends in LF. No address and
 nothing from a tracking link.
 
 ## 12. The CSV cache
@@ -232,7 +236,7 @@ fixture for what a cut must never keep.
 
 Each step is its own pull request off `master`:
 
-1. Scaffold (this commit).
+1. Scaffold.
 2. Shared pieces: money and dates, CSV writing, paced fetching.
 3. Read a history page.
 4. Walk the history pages, with the refusals of section 10.

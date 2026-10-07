@@ -10,12 +10,12 @@
 - **On order and selling history** (`/myaccount/order_history`,
   `/myaccount/selling_history`) you pick a year and download a CSV of every
   paid purchase that shipped, or every paid sale that was completed, one row
-  per order, in the same five columns as go-mtgban's CK history tool. The file
-  is kept, so asking again while the history has not changed downloads it at
-  once.
+  per order in five columns: Order ID, Order Status, Order Date, Completed on
+  and Amount. The file is kept, so asking again while the history has not
+  changed downloads it at once.
 
-It is in development: this commit is the scaffold, and the features land in
-the order `SPECIFICATIONS.md` gives.
+It is in development, and the features land in the order `SPECIFICATIONS.md`
+gives.
 
 ## Permissions
 

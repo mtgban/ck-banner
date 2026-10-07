@@ -48,6 +48,22 @@ describe("the manifest", () => {
   });
 });
 
+describe("the source", () => {
+  test("calls no extension API", () => {
+    // With no permissions there is nothing to call, and a call that slips in
+    // would need one.
+    const calling = files("src").filter((name) => /\b(chrome|browser)\.\w/.test(read(name)));
+    expect(calling).toEqual([]);
+  });
+
+  test("names no site but Card Kingdom's", () => {
+    const urls = files("src").flatMap((name) =>
+      [...read(name).matchAll(/https?:\/\/[^/"'\s)]+/g)].map((m) => name + ": " + m[0])
+    );
+    expect(urls.filter((url) => !/: https:\/\/(www|api)\.cardkingdom\.com$/.test(url))).toEqual([]);
+  });
+});
+
 describe("punctuation", () => {
   test("no em dash in the source, the docs or the config", () => {
     const names = [

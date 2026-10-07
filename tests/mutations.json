@@ -1,0 +1,30 @@
+[
+  {
+    "guard": "a price with three decimals is refused",
+    "file": "src/money.js",
+    "find": "\\.(\\d{2})$/;",
+    "replace": "\\.(\\d{2,3})$/;",
+    "expectFailing": "refuses three decimals"
+  },
+  {
+    "guard": "12 AM is midnight and 12 PM is noon",
+    "file": "src/money.js",
+    "find": "parts.hour = (hour % 12) +",
+    "replace": "parts.hour = hour +",
+    "expectFailing": "12 AM is midnight and 12 PM is noon"
+  },
+  {
+    "guard": "a Cloudflare challenge is not read as a refusal",
+    "file": "src/net.js",
+    "find": "if (challenged(response)) {",
+    "replace": "if (false) {",
+    "expectFailing": "a Cloudflare challenge is told apart from an ordinary refusal"
+  },
+  {
+    "guard": "a value with a comma is quoted",
+    "file": "src/csv.js",
+    "find": "if (/[\",\\r\\n]/.test(text)) {",
+    "replace": "if (/[\"\\r\\n]/.test(text)) {",
+    "expectFailing": "a comma is quoted"
+  }
+]

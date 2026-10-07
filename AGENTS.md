@@ -29,8 +29,15 @@ keep.
 ```
 manifest.json    MV3; no permissions, and a test keeps it that way
 icons/           the BAN stroopwafel, shared with cm-banner
+src/net.js       one page at a time: pace, deadline, Cloudflare challenge
+src/money.js     "$1,234.56" to cents and back; CK's dates to their parts
+src/csv.js       the history CSV: its five columns and Go's quoting
+scripts/mutate.mjs   breaks each guard in tests/mutations.json in turn
 tests/           bun + happy-dom, no browser
 ```
+
+The scripts share one global, `globalThis.CKB`, the way the browser runs
+them; `tests/helpers.js` runs them the same way.
 
 The source arrives step by step, in the order `SPECIFICATIONS.md` gives.
 
@@ -39,11 +46,18 @@ The source arrives step by step, in the order `SPECIFICATIONS.md` gives.
 ```
 bun install
 bun test tests/
+bun run mutate
 ```
 
 CI runs the same on every push, and checks that every file the manifest names
 exists. There is no build step: the scripts are plain ES5-ish so they can be
 `content_scripts` entries as they are; keep them that way.
+
+A guard (a refusal, a strict shape, a check that keeps a write safe) lands
+with an entry in `tests/mutations.json`: the text that breaks it and the name
+of the test that must then fail. `bun run mutate` applies each one to a copy
+of the tree and fails if the suite does not notice, or if an entry's text no
+longer appears exactly once.
 
 ## Traps
 

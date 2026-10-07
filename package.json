@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "description": "Compare a Card Kingdom sell cart with the price list, and export order and selling history as CSV",
   "scripts": {
-    "test": "bun test tests/"
+    "test": "bun test tests/",
+    "mutate": "bun scripts/mutate.mjs"
   },
   "devDependencies": {
     "happy-dom": "^20.14.5"
