@@ -87,9 +87,10 @@ exists. There is no build step: the scripts are plain ES5-ish so they can be
 
 A guard (a refusal, a strict shape, a check that keeps a write safe) lands
 with an entry in `tests/mutations.json`: the text that breaks it and the name
-of the test that must then fail. `bun run mutate` applies each one to a copy
-of the tree and fails if the suite does not notice, or if an entry's text no
-longer appears exactly once.
+of the test that must then fail. `bun run mutate` runs the whole suite once,
+then applies each mutation to a copy of the tree and runs only the test it
+names; it fails if that test does not fail, if no test file names it, or if an
+entry's text no longer appears exactly once.
 
 ## Traps
 
