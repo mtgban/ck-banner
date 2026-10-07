@@ -26,13 +26,21 @@ function tracked() {
   return listed.stdout.split("\0").filter((name) => name && existsSync(join(root, name)));
 }
 
+// LIMIT bounds one run of the suite, which takes seconds; a mutation that
+// makes it hang must fail the runner rather than stall it.
+const LIMIT = 120000;
+
 // run answers with the suite's exit status and the names of its failed tests.
 function run(dir) {
   const result = spawnSync(bun, ["test", "tests/"], {
     cwd: dir,
     encoding: "utf8",
+    timeout: LIMIT,
     env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" },
   });
+  if (result.error && result.error.code === "ETIMEDOUT") {
+    return { status: null, failed: [], output: "", timedOut: true };
+  }
   const output = (result.stdout + result.stderr).replace(/\x1b\[[0-9;]*m/g, "");
   const failed = output.split("\n").filter((line) => line.startsWith("(fail)"));
   return { status: result.status, failed, output };
@@ -48,7 +56,7 @@ try {
   symlinkSync(join(root, "node_modules"), join(copy, "node_modules"));
 
   const clean = run(copy);
-  if (clean.status !== 0) {
+  if (clean.timedOut || clean.status !== 0) {
     console.error(clean.output);
     throw new Error("the suite fails before anything is mutated");
   }
@@ -72,6 +80,10 @@ try {
       continue;
     }
     missed++;
+    if (result.timedOut) {
+      console.log(`TIMED OUT ${m.guard}: the suite did not finish in ${LIMIT / 1000} s`);
+      continue;
+    }
     if (result.status !== 0 && result.failed.length === 0) {
       console.log(`BROKEN   ${m.guard}: the suite did not run; is the replacement valid code?`);
       continue;
