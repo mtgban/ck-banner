@@ -10,24 +10,31 @@ the code as it does.
 
 ## 1. What it is
 
-Two content scripts on www.cardkingdom.com, sharing a small panel fixed to the
+Content scripts on www.cardkingdom.com, sharing a small panel fixed to the
 bottom right of the page (the "CK BANner" heading, a mark, a drawn tooltip, one
 row of buttons):
 
 - **Sell cart** (`/sellcart`): compares every cart line with CK's price list and
   marks each line beside its *Save for Later* link. Where the list pays more,
   *Update price* asks CK to reprice the line.
+- **Buy cart** (`/cart`): the same comparison the other way round, against the
+  list's retail price for the line's condition. Where the list now charges
+  less than the cart, a price reduction, the line is marked.
 - **History** (`/myaccount/order_history`, `/myaccount/selling_history`): a
   year picker and *Download CSV*, writing every paid purchase that shipped or
   every paid sale that was completed.
+
+Both carts work for a visitor who is not signed in. The history pages are
+shown only to a signed-in account.
 
 ## 2. Where it runs
 
 Manifest V3, no `permissions`, `host_permissions`, `background` or
 `web_accessible_resources`; a test pins their absence. Each page has one
 `matches` pattern with a trailing `*`, and the cart script returns at once
-unless `location.pathname` is `/sellcart` or `/sellcart/`, so it never runs on
-the cart's form targets (`/sellcart/lineitem/...`, `/sellcart/empty_cart`).
+unless `location.pathname` is `/sellcart` or `/cart`, with or without a
+trailing slash, so it never runs on the carts' form targets
+(`/sellcart/lineitem/...`, `/cart/lineitem/...`, `/sellcart/empty_cart`).
 
 ## 3. The sell cart
 
@@ -48,7 +55,12 @@ form. For each:
 Every field comes from the same wrapper, or the line is unreadable.
 
 The *Saved For Later* section under the cart belongs to the purchase side (its
-routes end in `/purchase`, its prices are retail) and is ignored.
+routes end in `/purchase`, its prices are retail) and is ignored. Its *Move
+All To Cart* button sits in a `.save-for-later-button` with a
+`data-ckproductid` of its own, which is why a line is known by its quantity
+form and not by a product id. A line that cannot be read whole (no product
+id, quantity or price, a total that is not quantity times price, no card
+name) is kept with the reason, so it can be marked rather than dropped.
 
 ### 3.2 Cash, not credit
 
@@ -56,6 +68,16 @@ The cart's prices are cash prices: the line totals add up to the Subtotal,
 which equals the "w/ PayPal or Check" figure, and the store credit figure is
 the Subtotal times 1.3. The price list's `price_buy` is cash too, so the two
 compare directly.
+
+### 3.3 The buy cart
+
+The buy cart shares the sell cart's markup but for three things: its quantity
+form posts to `/cart/lineitem/<id>`; the line total sits in
+`span.cart-item-price` and the price each reads `($2.99 /ea)`; and each line
+names its condition in `span.style` (`NM`, `EX`, `VG` or `G`). A line with any
+other condition is unreadable. Its prices are retail for that condition, and
+compare with the list's `condition_values` for it (`ex_price` for an EX line):
+on a saved buy cart, an EX line matched `ex_price` to the cent.
 
 ## 4. The price list
 
@@ -68,10 +90,11 @@ each row has `id`, `sku`, `scryfall_id`, `url`, `name`, `variation`,
 `qty_retail`, `price_buy` (dollars as a string), `qty_buying`, and retail
 `condition_values`.
 
-The list is about 94 MB and 146,000 rows. On arrival it is reduced to three
-arrays sorted by id: id, `price_buy` in integer cents (a price that is not
-plain dollars and cents is skipped and counted), and `qty_buying`. That is
-about 2 MB. `created_at` is kept and shown, so a reader can tell "CK changed
+The list is about 94 MB and 150,000 rows. On arrival it is reduced to arrays
+sorted by id: id, `price_buy` in integer cents (a price that is not plain
+dollars and cents is skipped and counted) and `qty_buying` for the sell cart,
+and each condition's retail price and quantity from `condition_values` for
+the buy cart. `created_at` is kept and shown, so a reader can tell "CK changed
 the price" from "the list is older than the cart".
 
 Singles only. Sealed lines are not compared until a saved cart with one has
@@ -98,6 +121,19 @@ First match wins:
 | `qty_buying` is 0 | wants 0 | amber `!` "Wants 0" |
 | list pays more | better | *Update price* |
 | list pays less | worse | amber `!` "List is lower" |
+| equal | same | grey tick |
+
+On the buy cart the same table runs the other way, against the list's price
+and quantity for the line's condition:
+
+| Condition | Verdict | Beside *Save for Later* |
+|-----------|---------|-------------------------|
+| a field unreadable (3.3) | unreadable | grey `?` |
+| id not in the list | not listed | grey `?` |
+| identity does not match the list row | mismatch | grey `?` |
+| none in stock in that condition | none in stock | amber `!` "None in stock" |
+| list charges less | reduced | highlighted "Price dropped" |
+| list charges more | raised | amber `!` "List is higher" |
 | equal | same | grey tick |
 
 Every comparison is with a snapshot, and the tooltips say so ("Card Kingdom's
@@ -131,6 +167,9 @@ per line `product_id`, `style`, `qty`, `price`, `original_price` and
 Never: a delete, a retry loop, more than one request in flight (every *Update
 price* is disabled while one runs), a request for a line whose verdict is not
 *better*, or a request built from a control that no longer matches its line.
+
+The buy cart has no such button: the request that would re-add a purchase line
+is not known, so a reduction is marked, not acted on.
 
 ## 8. The history pages
 
@@ -242,7 +281,11 @@ every order and cart line id everywhere it appears (text, links, form actions,
 labels), replaces every amount with a synthetic one of the same shape and the
 list's size (its results line and pager) with a synthetic one, and rewrites
 every URL to a synthetic one on the same origin. Dates and statuses
-stay as printed. Product ids stay: they are CK's public catalogue ids. The
+stay as printed. A cart keeps CK's markup and none of the account's items:
+each line is refilled with an item drawn at random (seeded) from a price
+list, at that list's price for the line's shape and condition, with line ids
+renumbered, every `_token` replaced, and the item count and Subtotal
+recomputed. The
 script checks its own output for an id, an address line or a link it should
 have removed, and writes nothing if it finds one. `tests/repo.test.js` scans every
 fixture for what a cut must never keep.
@@ -256,15 +299,15 @@ Each step is its own pull request off `master`:
 3. Read a history page.
 4. Walk the history pages, with the refusals of section 10.
 5. The year picker and *Download CSV*.
-6. Read the sell cart.
+6. Read the sell and buy carts.
 7. Reduce and cache the price list.
-8. Compare the cart with the list.
-9. *Update price*.
+8. Compare both carts with the list.
+9. *Update price* on the sell cart.
 10. The CSV cache.
 
 Version 0.1.0 is released only after these have been checked on the live site,
-in Chrome and Firefox: a real price list read from the cart page; the history
-sort, the signed-out response, and a full sales walk under Cloudflare; a Vue
+in Chrome and Firefox: a real price list read from each cart page, signed in
+and out; the history sort and a full sales walk under Cloudflare; a Vue
 re-render re-marking each line once and never the wrong one; IndexedDB from
 the content script; the cart reached by every route; and *Update price* on a
 cheap card while the account's owner watches.
@@ -278,4 +321,6 @@ cheap card while the account's owner watches.
   older than the cart.
 - What the history pages' 25 / 50 / 100 page-size choice does; the walk uses
   25 until that is known.
-- Sealed lines in the sell cart.
+- Sealed lines in either cart.
+- The request that re-adds a purchase line, and whether CK reprices a buy
+  cart line on its own.
