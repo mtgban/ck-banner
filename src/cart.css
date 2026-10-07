@@ -1,0 +1,102 @@
+/* The mark beside each cart line's Save for Later: a badge, and a tooltip it
+   draws on hover or focus. Every rule names four classes so that CK's own
+   `.cart-product-list .cart-interaction-wrapper :not(.btn,.cart-tag)` reset,
+   three classes deep, does not strip it. */
+
+.cart-product-list .cart-interaction-wrapper .ck-banner-line {
+  position: relative;
+  display: inline-block;
+  margin: 0 8px 0 0;
+  padding: 0;
+  vertical-align: middle;
+}
+
+.cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-badge {
+  display: inline-block;
+  box-sizing: border-box;
+  /* One width for every worded badge, so lines line up whatever they say. */
+  min-width: 112px;
+  margin: 0;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  cursor: default;
+}
+
+.cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-good {
+  background: #e3f4e8;
+  border-color: #9fd3b0;
+  color: #1d6b38;
+}
+
+.cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-warn {
+  background: #fff4dc;
+  border-color: #f0cf86;
+  color: #8a5a00;
+}
+
+/* A tick or a question mark, so narrow. */
+.cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-quiet {
+  min-width: 28px;
+  background: #f1f1f1;
+  border-color: #ddd;
+  color: #666;
+}
+
+.cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-badge:focus-visible {
+  outline: 2px solid #2d67c4;
+  outline-offset: 2px;
+}
+
+/* Above the badge and right-aligned with it, since the line's buttons sit
+   at its right edge. */
+.cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-linetip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 1000;
+  box-sizing: border-box;
+  width: 260px;
+  padding: 6px 8px;
+  border-radius: 6px;
+
+  background: #0f1c30;
+  color: #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 35%);
+
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-badge:hover + .ck-banner-linetip,
+.cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-badge:focus-visible + .ck-banner-linetip {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-linetip {
+    transform: translateY(3px);
+    transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms;
+  }
+
+  .cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-badge:hover + .ck-banner-linetip,
+  .cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-badge:focus-visible + .ck-banner-linetip {
+    transform: none;
+    transition-delay: 80ms, 80ms, 0s;
+  }
+}

@@ -126,9 +126,9 @@ First match wins:
 | a field unreadable (3.1) | unreadable | grey `?` |
 | id not in the list | not listed | grey `?` |
 | identity does not match the list row | mismatch | grey `?` |
-| `qty_buying` is 0 | wants 0 | amber `!` "Wants 0" |
-| list pays more | better | *Update price* |
-| list pays less | worse | amber `!` "List is lower" |
+| `qty_buying` is 0 | wants 0 | amber "Wants 0" |
+| list pays more | better | green "List pays more" |
+| list pays less | worse | amber "List is lower" |
 | equal | same | grey tick |
 
 On the buy cart the same table runs the other way, against the list's price
@@ -139,15 +139,24 @@ and quantity for the line's condition:
 | a field unreadable (3.3) | unreadable | grey `?` |
 | id not in the list | not listed | grey `?` |
 | identity does not match the list row | mismatch | grey `?` |
-| none in stock in that condition | none in stock | amber `!` "None in stock" |
-| list charges less | reduced | highlighted "Price dropped" |
-| list charges more | raised | amber `!` "List is higher" |
+| none in stock in that condition | none in stock | amber "None in stock" |
+| list charges less | reduced | green "Price dropped" |
+| list charges more | raised | amber "List is higher" |
 | equal | same | grey tick |
 
-Every comparison is with a snapshot, and the tooltips say so ("Card Kingdom's
-price list, built 04:05"); none of them promises a checkout price. The panel's
-tooltip sums the lines: how many are better, worse and the same, and the
-difference in dollars.
+A line's id must name the card its image shows: the list row's name key
+(section 4) is checked against the line's `alt`, and a line whose id names
+another card is not compared. Each mark is a badge placed first in the line's
+*Save for Later* box, beside the link and never inside it, with a tooltip the
+badge draws on hover or focus: the list's price each, the cart's, the
+difference each and on the line's quantity, and when the list was built.
+Every comparison is with a snapshot, and the tooltips say so; none of them
+promises a checkout price.
+
+The page is redrawn by Vue, so marking is idempotent: a line's old mark is
+removed before its new one goes in, and an observer marks the cart again only
+when its lines change or a redraw took a mark away, never because of its own
+marks.
 
 ## 7. Update price
 
@@ -278,6 +287,17 @@ orders the file holds (`34 shipped`, `12 completed`) beside a tick, and the
 tooltip names the file, the pages read, and what was left out by status,
 unpaid, or year. Nothing to save is a red cross and no file. At these
 addresses a page without the history table (a sign-in page) gets no panel.
+
+On the carts the row is one button, *Check prices*, then *Refresh* once the
+cart is marked; the list is read only on that click. While it reads the
+heading says `reading list`. Done, the heading counts the lines the list now
+favours (`3 better` on the sell cart, `2 dropped` on the buy cart, or `none`)
+beside a tick, and the tooltip counts every verdict by name, what the better
+prices would add (or the drops take off), when the list was built and read,
+and, when the lines read do not come to the cart's Subtotal, that a line may
+not have been read. A refused read is a red cross with the reason, and marks
+already on the page stay. Escape stops a read and keeps nothing. A cart with
+no lines gets no panel.
 
 ## 14. Fixtures
 

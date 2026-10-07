@@ -110,7 +110,8 @@ globalThis.CKB = globalThis.CKB || {};
     }
     var all = arrays(list);
     for (var i = 0; i < all.length; i++) {
-      if (!(all[i] instanceof Int32Array) || all[i].length !== list.ids.length || !all[i].length) {
+      if (Object.prototype.toString.call(all[i]) !== "[object Int32Array]" || all[i].length !== list.ids.length ||
+          !all[i].length) {
         return false;
       }
     }

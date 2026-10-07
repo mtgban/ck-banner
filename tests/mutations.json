@@ -299,5 +299,75 @@
     "find": "? CKB.nameKey(CKB.listName(row)) : null,",
     "replace": "? CKB.nameKey(row.name) : null,",
     "expectFailing": "a row's name key matches its cart line's card"
+  },
+  {
+    "guard": "better and worse point the right way",
+    "file": "src/compare.js",
+    "find": "verdict: pays > line.each ? \"better\" : pays < line.each ? \"worse\" : \"same\"",
+    "replace": "verdict: pays < line.each ? \"better\" : pays > line.each ? \"worse\" : \"same\"",
+    "expectFailing": "the list paying more is better"
+  },
+  {
+    "guard": "wanting none outranks paying more",
+    "file": "src/compare.js",
+    "find": "if (row.wants === 0) {",
+    "replace": "if (row.wants === 0 && row.buy <= line.each) {",
+    "expectFailing": "a card the list wants none of is marked so, even where it pays more"
+  },
+  {
+    "guard": "a line's id must name the card it shows",
+    "file": "src/compare.js",
+    "find": "if (row.name !== CKB.nameKey(line.alt)) {",
+    "replace": "if (false) {",
+    "expectFailing": "an id that names another card is not compared"
+  },
+  {
+    "guard": "a buy line is a price drop when the list asks less",
+    "file": "src/compare.js",
+    "find": "verdict: asks < line.each ? \"dropped\" : asks > line.each ? \"raised\" : \"same\"",
+    "replace": "verdict: asks > line.each ? \"dropped\" : asks < line.each ? \"raised\" : \"same\"",
+    "expectFailing": "the list asking less for the line's condition is a price drop"
+  },
+  {
+    "guard": "a buy line is compared in its own condition",
+    "file": "src/compare.js",
+    "find": "var asks = row.retail[line.condition];",
+    "replace": "var asks = row.retail.NM;",
+    "expectFailing": "the list asking less for the line's condition is a price drop"
+  },
+  {
+    "guard": "none in stock outranks a price drop",
+    "file": "src/compare.js",
+    "find": "if (row.stock[line.condition] === 0) {",
+    "replace": "if (row.stock[line.condition] === 0 && asks >= line.each) {",
+    "expectFailing": "none in stock in the line's condition is marked so, even where the price dropped"
+  },
+  {
+    "guard": "marking a line replaces its old mark",
+    "file": "src/cartpage.js",
+    "find": "      old[i].remove();",
+    "replace": "",
+    "expectFailing": "a line the page redrew is marked again, once"
+  },
+  {
+    "guard": "the mark sits beside the link, not in it",
+    "file": "src/cartpage.js",
+    "find": "line.host.insertBefore(box, line.host.firstChild);",
+    "replace": "line.host.querySelector(\"a\").appendChild(box);",
+    "expectFailing": "marks every line beside its Save for Later, never inside the link"
+  },
+  {
+    "guard": "a redrawn line is marked again",
+    "file": "src/cartpage.js",
+    "find": "if (!list || reading || (signature(lines) === shown && marked(lines))) {",
+    "replace": "if (!list || reading || signature(lines) === shown) {",
+    "expectFailing": "a line the page redrew is marked again, once"
+  },
+  {
+    "guard": "a list arriving after Escape is not used",
+    "file": "src/cartpage.js",
+    "find": "        if (reading !== controller) {\n          return null;\n        }",
+    "replace": "        if (false) {\n          return null;\n        }",
+    "expectFailing": "a list that arrives after Escape is not used or kept"
   }
 ]

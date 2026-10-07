@@ -1,0 +1,251 @@
+import { test, expect, describe } from "bun:test";
+import { CKB } from "./helpers.js";
+import { mountCart, pricelist } from "./panel.js";
+
+const SELL_IDS = [206649, 224590, 50270, 195917, 256544, 307429, 320150, 221214, 256266, 238255];
+
+// A list in which, against the sell cart (all edits synthetic):
+// 206649 pays more, 224590 pays less, 50270 is wanted by none, 195917 is
+// gone from the list, 256544's id names another card; the rest match.
+const moved = () =>
+  pricelist(
+    {
+      206649: { price_buy: "28.50" },
+      224590: { price_buy: "0.05" },
+      50270: { qty_buying: 0 },
+      256544: { name: "Dark Ritual" },
+    },
+    [195917]
+  );
+
+describe("the panel", () => {
+  test("appears on the sell cart and the buy cart", async () => {
+    expect((await mountCart()).heading()).toBe("CK BANner - prices");
+    expect((await mountCart({ side: "buy" })).heading()).toBe("CK BANner - prices");
+  });
+
+  test("offers to check, and says what checking does", async () => {
+    const it = await mountCart();
+    expect(it.button().textContent).toBe("Check prices");
+    expect(it.tip()).toBe("Compare this cart with Card Kingdom's price list, read once and kept for an hour");
+    expect(it.marks()).toEqual([]);
+    expect(it.asked).toEqual([]);
+  });
+
+  test("stays off the carts' form targets", async () => {
+    expect((await mountCart({ path: "/sellcart/lineitem/1001" })).panel).toBeNull();
+    expect((await mountCart({ side: "buy", path: "/cart/lineitem/1001/delete" })).panel).toBeNull();
+  });
+
+  test("stays hidden on a cart with no lines", async () => {
+    expect((await mountCart({ body: "<p>Your cart is empty.</p>" })).panel.hidden).toBe(true);
+  });
+});
+
+describe("checking prices on the sell cart", () => {
+  test("reads the list once, without cookies or headers", async () => {
+    const it = await mountCart();
+    it.button().click();
+    expect(it.busy()).toBe(true);
+    expect(it.word()).toBe("reading list");
+    expect(it.button().disabled).toBe(true);
+    await it.settle();
+    expect(it.asked.length).toBe(1);
+    expect(it.asked[0].url).toBe("https://api.cardkingdom.com/api/v2/pricelist");
+    expect(it.asked[0].options.credentials).toBe("omit");
+    expect("headers" in it.asked[0].options).toBe(false);
+  });
+
+  test("marks every line beside its Save for Later, never inside the link", async () => {
+    const it = await mountCart();
+    it.button().click();
+    await it.settle();
+    const marks = it.marks();
+    expect(marks.map((m) => m.product)).toEqual(SELL_IDS);
+    expect(marks.every((m) => m.first && !m.inLink)).toBe(true);
+    expect(marks.every((m) => m.verdict === "same" && m.badge === "\u2713")).toBe(true);
+    expect(it.heading()).toBe("CK BANner - none better\u2713");
+    expect(it.button().textContent).toBe("Refresh");
+  });
+
+  test("each verdict reads as the spec says", async () => {
+    const it = await mountCart({ prices: moved() });
+    it.button().click();
+    await it.settle();
+    expect(it.mark(206649)).toMatchObject({ verdict: "better", badge: "List pays more", tone: "good" });
+    expect(it.mark(206649).tip).toBe(
+      "Card Kingdom's list now pays $28.50 each; the cart has $27.00 (+$1.50 each, +$1.50 on 1). Price list built 2026-09-17 04:04:33."
+    );
+    expect(it.mark(224590)).toMatchObject({ verdict: "worse", badge: "List is lower", tone: "warn" });
+    expect(it.mark(224590).tip).toBe(
+      "Card Kingdom's list now pays $0.05 each, below the cart's $0.10 (-$0.05 each). Price list built 2026-09-17 04:04:33."
+    );
+    expect(it.mark(50270)).toMatchObject({ verdict: "wants0", badge: "Wants 0", tone: "warn" });
+    expect(it.mark(195917)).toMatchObject({ verdict: "unlisted", badge: "?", tone: "quiet" });
+    expect(it.mark(195917).tip).toBe("Not in Card Kingdom's price list (id 195917).");
+    expect(it.mark(256544)).toMatchObject({ verdict: "mismatch", badge: "?" });
+    expect(it.mark(307429)).toMatchObject({ verdict: "same", badge: "\u2713" });
+  });
+
+  test("the panel counts the lines and what the better ones are worth", async () => {
+    const it = await mountCart({ prices: moved() });
+    it.button().click();
+    await it.settle();
+    expect(it.heading()).toBe("CK BANner - 1 better\u2713");
+    expect(it.tip()).toMatch(
+      /^1 better, 1 worse, 1 not wanted, 5 the same, 1 not listed, 1 not matching\. Every better price would add \$1\.50\. Price list built 2026-09-17 04:04:33, read at \d\d:\d\d\.$/
+    );
+  });
+
+  test("a line the page could not read is marked, not dropped", async () => {
+    // Synthetic: one line's price each loses its cents.
+    const it = await mountCart({
+      body: (await import("./helpers.js")).text("sell-cart.html").replace("$27.00 /ea", "$27 /ea"),
+    });
+    it.button().click();
+    await it.settle();
+    expect(it.mark(206649)).toMatchObject({ verdict: "unreadable", badge: "?" });
+    expect(it.mark(206649).tip).toBe("Could not read this line: no price.");
+  });
+
+  test("carries no title and nothing under its button", async () => {
+    const it = await mountCart();
+    it.button().click();
+    await it.settle();
+    expect(it.titled()).toBe(0);
+    expect(it.below()).toBe(0);
+  });
+});
+
+describe("checking prices on the buy cart", () => {
+  test("marks a price drop for the line's condition", async () => {
+    // Synthetic: 10202 (2 at $1.74 in VG) now $1.50 in VG; 130810 (NM) now
+    // higher; 217590 (EX) out of stock in EX.
+    const it = await mountCart({
+      side: "buy",
+      prices: pricelist({
+        10202: { condition_values: { vg_price: "1.50" } },
+        130810: { condition_values: { nm_price: "3.49" } },
+        217590: { condition_values: { ex_qty: 0 } },
+      }),
+    });
+    it.button().click();
+    await it.settle();
+    expect(it.mark(10202)).toMatchObject({ verdict: "dropped", badge: "Price dropped", tone: "good" });
+    expect(it.mark(10202).tip).toBe(
+      "Card Kingdom now asks $1.50 each in VG, below the cart's $1.74 (-$0.24 each, -$0.48 on 2). Price list built 2026-09-17 04:04:33."
+    );
+    expect(it.mark(130810)).toMatchObject({ verdict: "raised", badge: "List is higher", tone: "warn" });
+    expect(it.mark(217590)).toMatchObject({ verdict: "nostock", badge: "None in stock" });
+    expect(it.heading()).toBe("CK BANner - 1 dropped\u2713");
+    expect(it.tip()).toMatch(/^1 dropped, 1 higher, 1 out of stock, 3 the same\. The drops come to \$0\.48 off the cart\./);
+  });
+});
+
+describe("the hour", () => {
+  test("a fresh kept list marks the cart on load, with no request", async () => {
+    const it = await mountCart({ kept: CKB.reducePrices(moved(), Date.now()) });
+    expect(it.asked).toEqual([]);
+    expect(it.mark(206649).verdict).toBe("better");
+    expect(it.button().textContent).toBe("Refresh");
+  });
+
+  test("a stale kept list marks nothing and asks for nothing", async () => {
+    const it = await mountCart({ kept: CKB.reducePrices(moved(), Date.now() - CKB.LIST_TTL) });
+    expect(it.asked).toEqual([]);
+    expect(it.marks()).toEqual([]);
+    expect(it.button().textContent).toBe("Check prices");
+  });
+
+  test("a list read on one cart is kept for the next", async () => {
+    const first = await mountCart();
+    first.button().click();
+    await first.settle();
+    expect(await first.kept()).not.toBeNull();
+    const next = await mountCart({ side: "buy", idb: first.idb });
+    expect(next.asked).toEqual([]);
+    expect(next.marks().length).toBe(6);
+  });
+});
+
+describe("stopping and failing", () => {
+  test("Escape stops the read, keeps nothing and marks nothing", async () => {
+    const it = await mountCart({ respond: () => {} });
+    it.button().click();
+    await it.settle();
+    expect(it.busy()).toBe(true);
+    expect(it.leaving()).toBe(true);
+    it.escape();
+    await it.settle();
+    expect(it.busy()).toBe(false);
+    expect(it.leaving()).toBe(false);
+    expect(it.marks()).toEqual([]);
+    expect(it.heading()).toBe("CK BANner - prices");
+    expect(await it.kept()).toBeNull();
+  });
+
+  test("a list that arrives after Escape is not used or kept", async () => {
+    // The response is in and its body is still arriving when Escape lands,
+    // in a browser that does not abort the body with the request.
+    let release;
+    const body = new Promise((resolve) => (release = resolve));
+    const it = await mountCart({ respond: (resolve) => resolve({ ok: true, status: 200, json: () => body }) });
+    it.button().click();
+    await it.settle();
+    it.escape();
+    release(moved());
+    await it.settle();
+    expect(it.marks()).toEqual([]);
+    expect(it.heading()).toBe("CK BANner - prices");
+    expect(await it.kept()).toBeNull();
+  });
+
+  test("a refused read says why and marks nothing", async () => {
+    const it = await mountCart({ respond: (resolve) => resolve({ ok: false, status: 503, json: () => Promise.resolve({}) }) });
+    it.button().click();
+    await it.settle();
+    expect(it.failed()).toBe(true);
+    expect(it.tip()).toBe("Card Kingdom's price list answered 503");
+    expect(it.marks()).toEqual([]);
+    expect(it.button().disabled).toBe(false);
+  });
+
+  test("a refused refresh keeps the marks it had", async () => {
+    let refuse = false;
+    const it = await mountCart({
+      respond: (resolve) =>
+        resolve(refuse ? { ok: false, status: 503, json: () => Promise.resolve({}) } : { ok: true, status: 200, json: () => Promise.resolve(moved()) }),
+    });
+    it.button().click();
+    await it.settle();
+    refuse = true;
+    it.button().click();
+    await it.settle();
+    expect(it.failed()).toBe(true);
+    expect(it.mark(206649).verdict).toBe("better");
+    expect(it.heading()).toBe("CK BANner - 1 better\u2717");
+  });
+});
+
+describe("a page that redraws itself", () => {
+  test("a line the page redrew is marked again, once", async () => {
+    const it = await mountCart();
+    it.button().click();
+    await it.settle();
+    it.redraw(206649);
+    expect(it.mark(206649)).toBeUndefined();
+    await it.settle(400);
+    expect(it.marks().filter((m) => m.product === 206649).length).toBe(1);
+    expect(it.marks().length).toBe(10);
+  });
+
+  test("its own marks do not make it mark again", async () => {
+    const it = await mountCart();
+    it.button().click();
+    await it.settle();
+    const first = it.panel.ownerDocument.querySelector(".ck-banner-line");
+    await it.settle(400);
+    expect(it.panel.ownerDocument.querySelector(".ck-banner-line")).toBe(first);
+    expect(it.marks().length).toBe(10);
+  });
+});
