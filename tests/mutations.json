@@ -457,8 +457,8 @@
   {
     "guard": "Rebuild always reads the list",
     "file": "src/historypage.js",
-    "find": "if (!force && CKB.usableFile(kept, signature, y, Date.now())) {",
-    "replace": "if (CKB.usableFile(kept, signature, y, Date.now())) {",
+    "find": "if (!force && CKB.usableFile(found[0], signature, y, now)) {",
+    "replace": "if (CKB.usableFile(found[0], signature, y, now)) {",
     "expectFailing": "Rebuild reads the list again"
   },
   {
@@ -481,6 +481,13 @@
     "find": "var start = oldest(first) <= year ? Promise.resolve(1) : search(2, walked.pageCount);",
     "replace": "var start = Promise.resolve(1);",
     "expectFailing": "a year deep in the list is found without reading the pages before it"
+  },
+  {
+    "guard": "a year is cut from the kept every-year file",
+    "file": "src/historypage.js",
+    "find": "if (!force && CKB.usableFile(all, signature, null, now) && Array.isArray(all.rows)) {",
+    "replace": "if (false) {",
+    "expectFailing": "a year is cut from the kept every-year file, with no walk"
   },
   {
     "guard": "a card's key tells foil from plain",

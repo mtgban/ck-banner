@@ -264,12 +264,29 @@ describe("the kept file", () => {
     expect(it.failed()).toBe(true);
   });
 
-  test("each year keeps its own file", async () => {
+  test("a year is cut from the kept every-year file, with no walk", async () => {
     const it = mountHistory({ total: 60 });
     await downloaded(it, "all");
     await downloaded(it, "2026");
-    expect(it.go().textContent).toBe("Download CSV");
+    expect(it.asked.length).toBe(3 + 1);
     expect(it.saved.map((s) => s.name)).toEqual(["ck-purchases-all.csv", "ck-purchases-2026.csv"]);
+    expect((await it.file(1)).text.trimEnd().split("\n").length).toBe(26);
+    expect(it.go().textContent).toBe("Rebuild");
+    expect(it.tip()).toMatch(
+      /^Saved ck-purchases-2026\.csv from the every-year list built at \d\d:\d\d: page 1 has not changed since\. Rebuild reads the list again\.$/
+    );
+    // Rebuild reads that year from the list itself.
+    it.go().click();
+    await it.settle();
+    expect(it.asked.length).toBe(3 + 1 + 2);
+  });
+
+  test("each year keeps its own file", async () => {
+    const it = mountHistory({ total: 60 });
+    await downloaded(it, "2026");
+    await downloaded(it, "2025");
+    expect(it.go().textContent).toBe("Download CSV");
+    expect(it.saved.map((s) => s.name)).toEqual(["ck-purchases-2026.csv", "ck-purchases-2025.csv"]);
   });
 
   test("a file kept for every year a day ago is built again", async () => {

@@ -107,7 +107,21 @@
     panel.word(picked.rows.length + " " + page.done);
     panel.mark("done");
     panel.recap(recap(name, picked, walked));
-    return { name: name, csv: csv, count: picked.rows.length, read: pagesRead(walked) };
+    var file = { name: name, csv: csv, count: picked.rows.length, read: pagesRead(walked) };
+    // Every year's file keeps its rows too, so any one year can be cut from it.
+    if (y === null) {
+      file.rows = picked.rows.map(function (row) {
+        return {
+          orderID: row.orderID,
+          status: row.status,
+          orderDate: row.orderDate,
+          completedOn: row.completedOn,
+          amount: row.amount,
+          year: CKB.yearOf(row, page.kind),
+        };
+      });
+    }
+    return file;
   }
 
   // served hands out a kept file, and turns the button into Rebuild.
@@ -121,6 +135,36 @@
     );
     rebuild = true;
     go.textContent = "Rebuild";
+  }
+
+  // cut hands out one year from the kept file of every year, with no walk.
+  function cut(all, y) {
+    var rows = all.rows.filter(function (row) {
+      return row.year === y;
+    });
+    var built = "the every-year list built at " + clock(all.builtAt);
+    rebuild = true;
+    go.textContent = "Rebuild";
+    if (!rows.length) {
+      panel.word(page.kind);
+      panel.fail(page.none + " in " + y + ", in " + built + ".");
+      return;
+    }
+    var name = "ck-" + page.kind + "-" + y + ".csv";
+    CKB.download(CKB.toCSV(rows), name);
+    panel.word(rows.length + " " + page.done);
+    panel.mark("done");
+    panel.recap("Saved " + name + " from " + built + ": page 1 has not changed since. Rebuild reads the list again.");
+  }
+
+  function kept(key) {
+    return store
+      .then(function (s) {
+        return s.get(key);
+      })
+      .catch(function () {
+        return null;
+      });
   }
 
   function run() {
@@ -143,20 +187,21 @@
           return null;
         }
         signature = CKB.historySignature(first, page.kind);
-        return store
-          .then(function (s) {
-            return s.get(key);
-          })
-          .catch(function () {
-            return null;
-          })
-          .then(function (kept) {
+        return Promise.all([kept(key), y === null ? null : kept(CKB.fileKey(page.kind, null))])
+          .then(function (found) {
             if (stale()) {
               return null;
             }
-            if (!force && CKB.usableFile(kept, signature, y, Date.now())) {
+            var now = Date.now();
+            if (!force && CKB.usableFile(found[0], signature, y, now)) {
               panel.busy(false);
-              served(kept);
+              served(found[0]);
+              return null;
+            }
+            var all = found[1];
+            if (!force && CKB.usableFile(all, signature, null, now) && Array.isArray(all.rows)) {
+              panel.busy(false);
+              cut(all, y);
               return null;
             }
             return CKB.walkHistory(page.kind, base, {

@@ -296,6 +296,10 @@ does not move the signature, so a file holding this year's orders, or every
 year's, is used for a day and then built again; a past year's file is used
 for as long as page 1 holds.
 
+The every-year file also keeps its rows (the five columns and each row's
+year), so while it may be used any single year is cut from it with no walk
+beyond page 1; *Rebuild* then reads that year from the list.
+
 ## 13. The panel
 
 A fixed width that never changes while it works. Status is a mark beside the
