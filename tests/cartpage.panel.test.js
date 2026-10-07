@@ -101,6 +101,14 @@ describe("checking prices on the sell cart", () => {
     expect(it.tip()).toBe("1 price is better, 1 worse, 1 not wanted, 5 the same, 1 not listed, 1 not matching\nPrice list of 2026-09-17 04:04");
   });
 
+  test("the list's unreadable rows are counted", async () => {
+    // Synthetic: one row's price is not a price.
+    const it = await mountCart({ prices: pricelist({ 206649: { price_buy: "28.5x" } }) });
+    it.button().click();
+    await it.settle();
+    expect(it.tip()).toBe("9 prices are the same, 1 not listed\nPrice list of 2026-09-17 04:04 (1 row unreadable)");
+  });
+
   test("a line the page could not read is marked, not dropped", async () => {
     // Synthetic: one line's price each loses its cents.
     const it = await mountCart({

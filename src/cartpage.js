@@ -243,7 +243,8 @@
   }
 
   // summary is the panel's count and its tooltip: how many lines the list
-  // now favours, every verdict by name, and when the list was built.
+  // now favours, every verdict by name, and when the list was built, with
+  // how many of its rows could not be read when any could not.
   function summary(counts) {
     var key = ORDER[side][0][0];
     panel.word(counts[key] ? counts[key] + " " + ORDER[side][0][1] : "ready");
@@ -258,7 +259,11 @@
         said.push(said.length ? n + " " + pair[1] : n + (n === 1 ? " price is " : " prices are ") + pair[1]);
       }
     });
-    panel.recap(said.join(", ") + "\nPrice list of " + list.createdAt.replace(/:\d\d$/, ""));
+    var built = "Price list of " + list.createdAt.replace(/:\d\d$/, "");
+    if (list.skipped > 0) {
+      built += " (" + list.skipped + (list.skipped === 1 ? " row" : " rows") + " unreadable)";
+    }
+    panel.recap(said.join(", ") + "\n" + built);
   }
 
   // refreshable greys Refresh out while the list in hand is fresh, since

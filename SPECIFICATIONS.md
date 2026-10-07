@@ -117,7 +117,7 @@ been seen.
 The reduced list is stored in IndexedDB on www.cardkingdom.com (no permission
 needed), database `ck-banner`, store `cache`. It is fresh while less than an
 hour old; at exactly an hour it is stale, and one dated in the future (the
-clock moved back) is stale too. A stale or missing list is never used: the panel offers *Check prices*
+clock moved back) is stale too. A stale or missing list is never used: the panel offers *Load prices*
 and marks nothing. An entry of the wrong shape or schema version counts as
 missing. Where IndexedDB is unavailable (some private windows), the list is
 held for the page's life and the tooltip says so.
@@ -331,7 +331,8 @@ prices`. Done, the heading counts the lines the list now favours in the same
 word on both carts (`3 better`), or says `ready`, beside a tick. The tooltip
 is two lines: every verdict counted ("2 prices are the same", "1 price is
 better, 1 worse, 5 the same"), then when the list was built ("Price list of
-2026-09-17 04:04"). A refused read is a red cross with the reason, and marks
+2026-09-17 04:04"), and how many of its rows were skipped (section 4) when
+any were ("(3 rows unreadable)"). A refused read is a red cross with the reason, and marks
 already on the page stay. Escape stops a read and keeps nothing. A cart with
 no lines gets no panel.
 
