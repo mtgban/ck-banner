@@ -49,7 +49,7 @@ describe("checking prices on the sell cart", () => {
     expect(it.busy()).toBe(true);
     expect(it.word()).toBe("fetching prices");
     expect(it.button().disabled).toBe(true);
-    await it.settle();
+    await it.idle();
     expect(it.asked.length).toBe(1);
     expect(it.asked[0].url).toBe("https://api.cardkingdom.com/api/v2/pricelist");
     expect(it.asked[0].options.credentials).toBe("omit");
@@ -59,7 +59,7 @@ describe("checking prices on the sell cart", () => {
   test("a cart the list agrees with gets no marks, and the panel just its tick", async () => {
     const it = await mountCart();
     it.button().click();
-    await it.settle();
+    await it.idle();
     expect(it.marks()).toEqual([]);
     expect(it.heading()).toBe("CK BANner - ready\u2713");
     expect(it.tip()).toBe("10 prices are the same\nPrice list of 2026-09-17 04:04");
@@ -69,7 +69,7 @@ describe("checking prices on the sell cart", () => {
   test("marks every line beside its Save for Later, never inside the link", async () => {
     const it = await mountCart({ prices: moved() });
     it.button().click();
-    await it.settle();
+    await it.idle();
     const marks = it.marks();
     expect(marks.map((m) => m.product)).toEqual([206649, 224590, 50270, 195917, 256544]);
     expect(marks.every((m) => m.first && !m.inLink)).toBe(true);
@@ -78,7 +78,7 @@ describe("checking prices on the sell cart", () => {
   test("each verdict reads as the spec says", async () => {
     const it = await mountCart({ prices: moved() });
     it.button().click();
-    await it.settle();
+    await it.idle();
     expect(it.mark(206649)).toMatchObject({ verdict: "better", badge: "Update price" });
     expect(it.mark(206649).tip).toBe("List pays $28.50, cart has $27.00 (+$1.50 each).");
     expect(it.mark(224590)).toMatchObject({ verdict: "worse", badge: "List is lower", tone: "warn" });
@@ -96,7 +96,7 @@ describe("checking prices on the sell cart", () => {
   test("the panel counts the lines and says when the list is from", async () => {
     const it = await mountCart({ prices: moved() });
     it.button().click();
-    await it.settle();
+    await it.idle();
     expect(it.heading()).toBe("CK BANner - 1 better\u2713");
     expect(it.tip()).toBe("1 price is better, 1 worse, 1 not wanted, 5 the same, 1 not listed, 1 not matching\nPrice list of 2026-09-17 04:04");
   });
@@ -105,7 +105,7 @@ describe("checking prices on the sell cart", () => {
     // Synthetic: one row's price is not a price.
     const it = await mountCart({ prices: pricelist({ 206649: { price_buy: "28.5x" } }) });
     it.button().click();
-    await it.settle();
+    await it.idle();
     expect(it.tip()).toBe("9 prices are the same, 1 not listed\nPrice list of 2026-09-17 04:04 (1 row unreadable)");
   });
 
@@ -115,7 +115,7 @@ describe("checking prices on the sell cart", () => {
       body: (await import("./helpers.js")).text("sell-cart.html").replace("$27.00 /ea", "$27 /ea"),
     });
     it.button().click();
-    await it.settle();
+    await it.idle();
     expect(it.mark(206649)).toMatchObject({ verdict: "unreadable", badge: "?" });
     expect(it.mark(206649).tip).toBe("Could not read this line: no price.");
   });
@@ -123,7 +123,7 @@ describe("checking prices on the sell cart", () => {
   test("carries no title and nothing under its button", async () => {
     const it = await mountCart();
     it.button().click();
-    await it.settle();
+    await it.idle();
     expect(it.titled()).toBe(0);
     expect(it.below()).toBe(0);
   });
@@ -142,7 +142,7 @@ describe("checking prices on the buy cart", () => {
       }),
     });
     it.button().click();
-    await it.settle();
+    await it.idle();
     expect(it.mark(10202)).toMatchObject({ verdict: "dropped", badge: "Price dropped", tone: "good" });
     expect(it.mark(10202).tip).toBe("List asks $1.50 in VG, cart has $1.74 (-$0.24 each).");
     expect(it.mark(130810)).toMatchObject({ verdict: "raised", badge: "List is higher", tone: "warn" });
@@ -170,7 +170,7 @@ describe("the hour", () => {
   test("a list read on one cart is kept for the next", async () => {
     const first = await mountCart();
     first.button().click();
-    await first.settle();
+    await first.idle();
     expect(await first.kept()).not.toBeNull();
     const next = await mountCart({ side: "buy", idb: first.idb });
     expect(next.asked).toEqual([]);
@@ -214,7 +214,7 @@ describe("stopping and failing", () => {
   test("a refused read says why and marks nothing", async () => {
     const it = await mountCart({ respond: (resolve) => resolve({ ok: false, status: 503, json: () => Promise.resolve({}) }) });
     it.button().click();
-    await it.settle();
+    await it.idle();
     expect(it.failed()).toBe(true);
     expect(it.tip()).toBe("Card Kingdom's price list answered 503");
     expect(it.marks()).toEqual([]);
@@ -237,7 +237,7 @@ describe("stopping and failing", () => {
     });
     await it.settle(250);
     it.button().click();
-    await it.settle();
+    await it.idle();
     expect(it.failed()).toBe(true);
     expect(it.mark(206649).verdict).toBe("better");
     expect(it.heading()).toBe("CK BANner - 1 better\u2717");
@@ -248,7 +248,7 @@ describe("a page that redraws itself", () => {
   test("a line the page redrew is marked again, once", async () => {
     const it = await mountCart({ prices: moved() });
     it.button().click();
-    await it.settle();
+    await it.idle();
     it.redraw(224590);
     expect(it.mark(224590)).toBeUndefined();
     await it.settle(400);
@@ -259,7 +259,7 @@ describe("a page that redraws itself", () => {
   test("its own marks, and the lines it leaves unmarked, do not make it mark again", async () => {
     const it = await mountCart({ prices: moved() });
     it.button().click();
-    await it.settle();
+    await it.idle();
     const first = it.panel.ownerDocument.querySelector(".ck-banner-line");
     await it.settle(400);
     // Still the same element: nothing marked the cart again.
@@ -287,7 +287,7 @@ describe("Update price", () => {
   async function marked(options) {
     const it = await mountCart({ prices: moved(), ...options });
     it.button().click();
-    await it.settle();
+    await it.idle();
     return it;
   }
 
@@ -302,7 +302,7 @@ describe("Update price", () => {
   test("the buy cart offers none, even for a drop", async () => {
     const it = await mountCart({ side: "buy", prices: pricelist({ 10202: { condition_values: { vg_price: "1.50" } } }) });
     it.button().click();
-    await it.settle();
+    await it.idle();
     expect(it.mark(10202).verdict).toBe("dropped");
     expect(it.updates()).toEqual([]);
   });
@@ -310,7 +310,7 @@ describe("Update price", () => {
   test("one click sends one request, for the line's quantity, then reloads", async () => {
     const it = await marked({ writes: () => Promise.resolve(answer()) });
     it.update(206649).click();
-    await it.settle();
+    await it.idle();
     expect(it.written).toEqual([
       { url: "https://www.cardkingdom.com/api/sellcart/add", method: "POST", body: '{"product_id":"206649","style":"NM","quantity":1}' },
     ]);
@@ -358,9 +358,9 @@ describe("Update price", () => {
   test("CK keeping the old price is said, and nothing more is sent", async () => {
     const it = await mountCart({ prices: two(), writes: () => Promise.resolve(answer({ price: "27.00" })) });
     it.button().click();
-    await it.settle();
+    await it.idle();
     it.update(206649).click();
-    await it.settle(900);
+    await it.idle();
     expect(it.mark(206649)).toMatchObject({ badge: "Price kept", tone: "warn" });
     expect(it.mark(206649).tip).toBe("Card Kingdom kept $27.00 each. Remove the card and add it again to take $28.50 each.");
     expect(it.written.length).toBe(1);
@@ -374,7 +374,7 @@ describe("Update price", () => {
       writes: (url) => Promise.resolve(url.endsWith("/api/sellcart/add") ? answer({ qty: 2 }) : { ok: true, status: 200 }),
     });
     it.update(206649).click();
-    await it.settle();
+    await it.idle();
     expect(it.written).toEqual([
       { url: "https://www.cardkingdom.com/api/sellcart/add", method: "POST", body: '{"product_id":"206649","style":"NM","quantity":1}' },
       { url: "https://www.cardkingdom.com/sellcart/lineitem/5550001", method: "POST", body: "_token=TOKEN&qty=1" },
@@ -389,9 +389,9 @@ describe("Update price", () => {
       writes: (url) => Promise.resolve(url.endsWith("/api/sellcart/add") ? answer({ qty: 2 }) : { ok: false, status: 419 }),
     });
     it.button().click();
-    await it.settle();
+    await it.idle();
     it.update(206649).click();
-    await it.settle(900);
+    await it.idle();
     expect(it.written.length).toBe(2);
     expect(it.mark(206649)).toMatchObject({ badge: "Not updated", tone: "bad" });
     expect(it.mark(206649).tip).toBe(
@@ -405,15 +405,15 @@ describe("Update price", () => {
   test("a failed update locks every other until the page is reloaded", async () => {
     const it = await mountCart({ prices: two(), writes: () => Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) }) });
     it.button().click();
-    await it.settle();
+    await it.idle();
     it.update(206649).click();
-    await it.settle(900);
+    await it.idle();
     expect(it.mark(206649)).toMatchObject({ badge: "Not updated", tone: "bad" });
     expect(it.mark(206649).tip).toBe("Card Kingdom answered 503. Reload the page to see what Card Kingdom holds.");
     expect(it.failed()).toBe(true);
     expect(it.update(224590).disabled).toBe(true);
     it.update(224590).click();
-    await it.settle();
+    await it.idle();
     expect(it.written.length).toBe(1);
     expect(it.reloads).toEqual([]);
   });
@@ -424,7 +424,7 @@ describe("Update price", () => {
     expect(it.update(206649)).not.toBeNull();
     await it.settle(250);
     it.update(206649).click();
-    await it.settle();
+    await it.idle();
     expect(it.written).toEqual([]);
     expect(it.mark(206649)).toMatchObject({ badge: "Check again", tone: "warn" });
     expect(it.mark(206649).tip).toBe("The price list is over an hour old; check prices again before updating.");
@@ -437,7 +437,7 @@ describe("Update price", () => {
     wrapper.querySelector(".item-price-wrapper").firstChild.textContent = " $28.50 ";
     wrapper.querySelector(".item-price-wrapper small").textContent = " $28.50 /ea ";
     it.update(206649).click();
-    await it.settle();
+    await it.idle();
     expect(it.written).toEqual([]);
     expect(it.mark(206649).tip).toBe("This line changed since it was marked; check prices again.");
   });
@@ -445,7 +445,7 @@ describe("Update price", () => {
   test("nothing it sends is ever a delete", async () => {
     const it = await marked({ writes: (url) => Promise.resolve(url.endsWith("/add") ? answer({ qty: 3 }) : { ok: true, status: 200 }) });
     it.update(206649).click();
-    await it.settle();
+    await it.idle();
     expect(it.written.length).toBe(2);
     expect(it.written.every((w) => w.method === "POST" && !/delete|empty|remove/i.test(w.url + w.body))).toBe(true);
   });
