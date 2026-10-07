@@ -51,10 +51,16 @@ function run(dir, args = ["tests/"]) {
     cwd: dir,
     encoding: "utf8",
     timeout: LIMIT,
+    // A failed expect can print a whole DOM node; the default 1 MB would cut
+    // the output, and with it the test's name.
+    maxBuffer: 1 << 28,
     env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" },
   });
   if (result.error && result.error.code === "ETIMEDOUT") {
     return { status: null, failed: [], output: "", timedOut: true };
+  }
+  if (result.error) {
+    throw new Error("could not run bun test: " + result.error.message);
   }
   const output = (result.stdout + result.stderr).replace(/\x1b\[[0-9;]*m/g, "");
   const failed = output.split("\n").filter((line) => line.startsWith("(fail)"));
