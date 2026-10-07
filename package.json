@@ -1,0 +1,12 @@
+{
+  "name": "ck-banner",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Compare a Card Kingdom sell cart with the price list, and export order and selling history as CSV",
+  "scripts": {
+    "test": "bun test tests/"
+  },
+  "devDependencies": {
+    "happy-dom": "^15.11.7"
+  }
+}

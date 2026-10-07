@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: bun install
+        run: bun install --frozen-lockfile
+
+      - name: bun test
+        run: bun test tests/
+
+      # The manifest is what the browsers read; a typo in it is a broken
+      # install rather than a failing test, so it is checked here - both that
+      # it parses and that every file it names is actually present.
+      - name: manifest names only files that exist
+        run: |
+          python3 - <<'EOF'
+          import json, sys, os
+          m = json.load(open("manifest.json"))
+          named = list(m.get("icons", {}).values())
+          for cs in m.get("content_scripts", []):
+              named += cs.get("js", []) + cs.get("css", [])
+          missing = [f for f in named if not os.path.exists(f)]
+          if missing:
+              sys.exit("manifest names missing files: " + ", ".join(missing))
+          print(f"manifest names {len(named)} files, all present")
+          EOF
