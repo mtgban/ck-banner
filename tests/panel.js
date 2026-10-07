@@ -131,8 +131,10 @@ export function pricelist(edits = {}, drop = []) {
 // mountCart opens the sell or buy cart from its fixture. The price list is
 // served from prices, or answered by respond(resolve, reject) when given;
 // either way the request honours its abort signal. kept, when given, is a
-// list already in the page's IndexedDB when the page loads.
-export async function mountCart({ side = "sell", path, body, prices = pricelist(), respond, kept, idb = new IDBFactory() } = {}) {
+// list already in the page's IndexedDB when the page loads. writes(url,
+// options) answers every other request the page sends (Update price and
+// putting a quantity back); a page reload is recorded instead of made.
+export async function mountCart({ side = "sell", path, body, prices = pricelist(), respond, kept, writes, idb = new IDBFactory() } = {}) {
   if (kept) {
     await CKB.keepList(await CKB.openStore(idb), kept);
   }
@@ -145,7 +147,12 @@ export async function mountCart({ side = "sell", path, body, prices = pricelist(
   window.indexedDB = idb;
 
   const asked = [];
+  const written = [];
   window.fetch = (url, options) => {
+    if (String(url) !== "https://api.cardkingdom.com/api/v2/pricelist") {
+      written.push({ url: String(url), method: options.method, body: String(options.body) });
+      return writes ? writes(String(url), options) : Promise.reject(new Error("no write expected"));
+    }
     asked.push({ url: String(url), options });
     return new Promise((resolve, reject) => {
       options.signal.addEventListener("abort", () => reject(new Error("aborted")));
@@ -160,6 +167,10 @@ export async function mountCart({ side = "sell", path, body, prices = pricelist(
   for (const script of scriptsFor(at.replace(/\?.*$/, ""))) {
     window.eval(source(script));
   }
+  const reloads = [];
+  if (window.CKB) {
+    window.CKB.reload = () => reloads.push(Date.now());
+  }
   const doc = window.document;
   const panel = doc.getElementById("ck-banner");
   const at$ = (selector) => panel && panel.querySelector(selector);
@@ -170,8 +181,8 @@ export async function mountCart({ side = "sell", path, body, prices = pricelist(
     [...doc.querySelectorAll(".ck-banner-line")].map((m) => ({
       product: Number(m.getAttribute("data-product")),
       verdict: m.getAttribute("data-verdict"),
-      badge: m.querySelector(".ck-banner-badge").textContent,
-      tone: m.querySelector(".ck-banner-badge").className.replace("ck-banner-badge ck-banner-", ""),
+      badge: m.querySelector(".ck-banner-badge, .ck-banner-update").textContent,
+      tone: m.querySelector(".ck-banner-badge, .ck-banner-update").className.replace("ck-banner-badge ck-banner-", ""),
       tip: m.querySelector(".ck-banner-linetip").textContent,
       inLink: !!m.closest("a"),
       first: m.parentElement.firstElementChild === m && m.parentElement.classList.contains("save-for-later-button"),
@@ -181,8 +192,12 @@ export async function mountCart({ side = "sell", path, body, prices = pricelist(
     window,
     panel,
     asked,
+    written,
+    reloads,
     idb,
     marks,
+    update: (product) => doc.querySelector(`.ck-banner-line[data-product="${product}"] .ck-banner-update`),
+    updates: () => [...doc.querySelectorAll(".ck-banner-update")],
     mark: (product) => marks().find((m) => m.product === product),
     heading: () =>
       [...at$(".ck-banner-label").childNodes]

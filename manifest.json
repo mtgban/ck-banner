@@ -41,12 +41,14 @@
         "https://www.cardkingdom.com/cart*"
       ],
       "js": [
+        "src/net.js",
         "src/money.js",
         "src/ui.js",
         "src/cart.js",
         "src/prices.js",
         "src/store.js",
         "src/compare.js",
+        "src/update.js",
         "src/cartpage.js"
       ],
       "css": [

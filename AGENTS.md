@@ -57,7 +57,8 @@ src/cart.js      both carts' lines, each read whole or marked unreadable
 src/prices.js    the price list: fetch, reduce to arrays by id, look up
 src/store.js     the list kept an hour, in IndexedDB or else in memory
 src/compare.js   a cart line against the list: the spec's two verdict tables
-src/cartpage.js  content script: Check prices and the per-line marks
+src/update.js    Update price: the one request, and CK's answer read
+src/cartpage.js  content script: Check prices, the marks, Update price
 src/cart.css     the marks, four classes deep to outrank CK's own reset
 src/ui.js        the panel both pages share, and the file download
 src/historypage.js  content script: year picker and Download CSV
