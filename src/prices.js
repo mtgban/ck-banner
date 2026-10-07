@@ -20,21 +20,26 @@ globalThis.CKB = globalThis.CKB || {};
   CKB.LIST_UNREADABLE = "Card Kingdom's price list could not be read";
 
   // The version of the kept shape; a kept list of another is read as none.
-  CKB.LIST_VERSION = 1;
+  CKB.LIST_VERSION = 2;
 
   CKB.CONDITIONS = ["NM", "EX", "VG", "G"];
 
-  // listName is a row's card as the carts' images name it:
-  // "Edition[ Foil]: Name[ (Variation)]".
+  // listName is a row's card as the carts' images name it, foil aside:
+  // "Edition: Name[ (Variation)]".
   CKB.listName = function (row) {
-    return (
-      row.edition + (row.is_foil === "true" ? " Foil" : "") + ": " + row.name +
-      (row.variation ? " (" + row.variation + ")" : "")
-    );
+    return row.edition + ": " + row.name + (row.variation ? " (" + row.variation + ")" : "");
   };
 
-  // nameKey folds a card's name into 32 bits (FNV-1a), enough to tell a
-  // cart line's card from the list row its id points at.
+  // cardKey folds a card's name and whether it is foil into 32 bits, enough
+  // to tell a cart line's card from the list row its id points at. An image
+  // writes a foil's edition as "2015 Core Set Foil" or leaves it plain, as
+  // for "Promotional: Mutavault (Extended Art Foil)", so a " Foil" before
+  // the edition's colon is dropped and foil is told by the line's own label.
+  CKB.cardKey = function (name, foil) {
+    return CKB.nameKey(name.replace(/ Foil(?=: )/g, "") + (foil ? "|foil" : ""));
+  };
+
+  // nameKey folds a string into 32 bits (FNV-1a).
   CKB.nameKey = function (text) {
     var h = 0x811c9dc5;
     for (var i = 0; i < text.length; i++) {
@@ -59,7 +64,7 @@ globalThis.CKB = globalThis.CKB || {};
       id: row.id,
       name: typeof row.name === "string" && typeof row.edition === "string" &&
         typeof row.variation === "string" && (row.is_foil === "true" || row.is_foil === "false")
-        ? CKB.nameKey(CKB.listName(row)) : null,
+        ? CKB.cardKey(CKB.listName(row), row.is_foil === "true") : null,
       buy: CKB.listCents(row.price_buy),
       wants: count(row.qty_buying),
       retail: {},

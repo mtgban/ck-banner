@@ -296,7 +296,7 @@
   {
     "guard": "the name key is the card as the cart names it",
     "file": "src/prices.js",
-    "find": "? CKB.nameKey(CKB.listName(row)) : null,",
+    "find": "? CKB.cardKey(CKB.listName(row), row.is_foil === \"true\") : null,",
     "replace": "? CKB.nameKey(row.name) : null,",
     "expectFailing": "a row's name key matches its cart line's card"
   },
@@ -317,7 +317,7 @@
   {
     "guard": "a line's id must name the card it shows",
     "file": "src/compare.js",
-    "find": "if (row.name !== CKB.nameKey(line.alt)) {",
+    "find": "if (row.name !== CKB.cardKey(line.alt, line.foil)) {",
     "replace": "if (false) {",
     "expectFailing": "an id that names another card is not compared"
   },
@@ -474,5 +474,19 @@
     "find": "        if (file) {\n          file.v = CKB.FILE_VERSION;",
     "replace": "        file = file || { name: \"none\", csv: \"\", count: 0, read: \"\" };\n        if (file) {\n          file.v = CKB.FILE_VERSION;",
     "expectFailing": "a year with nothing to save keeps nothing"
+  },
+  {
+    "guard": "a card's key tells foil from plain",
+    "file": "src/prices.js",
+    "find": "+ (foil ? \"|foil\" : \"\"));",
+    "replace": ");",
+    "expectFailing": "a line without the FOIL label is not the foil row"
+  },
+  {
+    "guard": "a foil's edition may be written plain",
+    "file": "src/prices.js",
+    "find": "name.replace(/ Foil(?=: )/g, \"\")",
+    "replace": "name",
+    "expectFailing": "a foil whose image writes Foil after the edition is its own card too"
   }
 ]

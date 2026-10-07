@@ -24,7 +24,7 @@ globalThis.CKB = globalThis.CKB || {};
       return { verdict: "unlisted" };
     }
     // The id must point at the card the line shows.
-    if (row.name !== CKB.nameKey(line.alt)) {
+    if (row.name !== CKB.cardKey(line.alt, line.foil)) {
       return { verdict: "mismatch" };
     }
 

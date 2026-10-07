@@ -81,6 +81,8 @@ globalThis.CKB = globalThis.CKB || {};
       total: total ? CKB.cents(total) : null,
       condition: CONDITIONS.indexOf(condition) >= 0 ? condition : null,
       alt: img ? img.getAttribute("alt").trim() : "",
+      // CK's own FOIL label under the card's title.
+      foil: !!wrapper.querySelector("div.foil"),
       problem: "",
     };
     if (line.productID === null) {

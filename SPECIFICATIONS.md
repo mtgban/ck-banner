@@ -50,7 +50,8 @@ form. For each:
 | quantity | that form's hidden `input[name="qty"]`, never the visible dropdown (lines with 100 or more available show a text box instead) |
 | price each | `.item-price-wrapper small`, text `$1.50 /ea` |
 | line total | the text before the `<br>` in `.item-price-wrapper`; it must equal quantity x price each, or the line is unreadable |
-| identity | the first `img[alt]`: `Edition[ Foil]: Name[ (Variation)]`, which equals the price list's `edition`, `is_foil`, `name` and `variation` for the line's id |
+| identity | the first `img[alt]`: `Edition[ Foil]: Name[ (Variation)]`, which equals the price list's `edition`, `name` and `variation` for the line's id; a foil's edition may be written with " Foil" or plain |
+| foil | CK's own FOIL label under the title (`div.foil`), which agrees with the list's `is_foil` |
 
 Every field comes from the same wrapper, or the line is unreadable.
 
@@ -94,9 +95,13 @@ The list is about 70 MB and 151,000 rows (the 2026-09-17 list). On arrival
 it is reduced to arrays sorted by id, about 7 MB: `price_buy` in integer
 cents and `qty_buying` for the sell cart; each condition's retail price and
 quantity from `condition_values` for the buy cart; and a 32-bit key of the
-card's name as the carts' images spell it (`Edition[ Foil]: Name[
-(Variation)]`), which checks that a line's product id points at the card the
-line shows. Prices must be plain dollars and at most two decimals. A row with
+card, its name as the carts' images spell it and whether it is foil, which
+checks that a line's product id points at the card the line shows. An image
+writes a foil's edition with " Foil" ("2015 Core Set Foil: Jace, the Living
+Guildpact") or leaves it plain ("Promotional: Mutavault (Extended Art
+Foil)"), so the key drops a " Foil" before the edition's colon on both sides
+and takes foil from the line's own FOIL label. On every line of three saved
+carts the names matched that way and the label agreed with `is_foil`. Prices must be plain dollars and at most two decimals. A row with
 any field of another shape is skipped and counted, and an id listed twice is
 dropped altogether, since which of its rows is right cannot be told. On the
 2026-09-17 list every one of the 151,487 rows was kept, every name was
@@ -144,9 +149,9 @@ and quantity for the line's condition:
 | list charges more | raised | amber "List is higher" |
 | equal | same | grey tick |
 
-A line's id must name the card its image shows: the list row's name key
-(section 4) is checked against the line's `alt`, and a line whose id names
-another card is not compared. Each mark is a badge placed first in the line's
+A line's id must name the card its image shows: the list row's key (section
+4) is checked against the line's `alt` and FOIL label, and a line whose id
+names another card is not compared. Each mark is a badge placed first in the line's
 *Save for Later* box, beside the link and never inside it, with a tooltip the
 badge draws on hover or focus: the list's price each, the cart's, the
 difference each and on the line's quantity, and when the list was built.

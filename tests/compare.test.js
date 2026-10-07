@@ -97,3 +97,35 @@ describe("the buy cart", () => {
     expect(verdictOf(buyLines(), listWith({}, [10202]), "buy", 10202)).toEqual({ verdict: "unlisted" });
   });
 });
+
+describe("telling a line's card", () => {
+  // The EX Mutavault on a real buy cart: its image says
+  // "Promotional: Mutavault (Extended Art Foil)", with no Foil after the
+  // edition, and its row is a foil.
+  function mutavault() {
+    const body = JSON.parse(text("pricelist.json"));
+    body.data.push({
+      ...body.data[0],
+      id: 190519,
+      name: "Mutavault",
+      edition: "Promotional",
+      variation: "Extended Art Foil",
+      is_foil: "true",
+      condition_values: { nm_price: "749.99", nm_qty: 0, ex_price: "629.99", ex_qty: 9, vg_price: "599.99", vg_qty: 4, g_price: "524.99", g_qty: 0 },
+    });
+    return CKB.reducePrices(body, NOW);
+  }
+  const line = { problem: "", productID: 190519, alt: "Promotional: Mutavault (Extended Art Foil)", foil: true, each: 62999, qty: 5, condition: "EX" };
+
+  test("a foil whose image leaves the edition plain is its own card", () => {
+    expect(CKB.compare(line, mutavault(), "buy").verdict).toBe("same");
+  });
+
+  test("a foil whose image writes Foil after the edition is its own card too", () => {
+    expect(CKB.compare({ ...line, alt: "Promotional Foil: Mutavault (Extended Art Foil)" }, mutavault(), "buy").verdict).toBe("same");
+  });
+
+  test("a line without the FOIL label is not the foil row", () => {
+    expect(CKB.compare({ ...line, foil: false }, mutavault(), "buy").verdict).toBe("mismatch");
+  });
+});

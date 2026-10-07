@@ -69,7 +69,7 @@ describe("reducing the list", () => {
     ];
     expect(lines.length).toBe(16);
     for (const l of lines) {
-      expect(CKB.lookup(list, l.productID).name).toBe(CKB.nameKey(l.alt));
+      expect(CKB.lookup(list, l.productID).name).toBe(CKB.cardKey(l.alt, l.foil));
     }
   });
 
