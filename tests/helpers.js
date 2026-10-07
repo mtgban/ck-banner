@@ -31,6 +31,13 @@ export function load(name) {
   return docOf(text(name));
 }
 
+// cartSubtotal is a cart's Subtotal in cents: the sum its lines' totals
+// must come to, which checks that the reader missed no line.
+export function cartSubtotal(doc) {
+  const m = /^Subtotal: (\$[\d,]+\.\d{2})$/.exec(doc.querySelector(".header-subtotal").textContent.replace(/\s+/g, " ").trim());
+  return m ? CKB.cents(m[1]) : null;
+}
+
 // pageOf builds page n of a list of total orders out of a history fixture:
 // the fixture's rows, trimmed to what page n holds, with their ids moved
 // along and their dates moved n - 1 years back so the list stays newest

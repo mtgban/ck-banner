@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test";
-import { CKB, load } from "./helpers.js";
+import { CKB, load, cartSubtotal } from "./helpers.js";
 
 const SELL = "https://www.cardkingdom.com/sellcart";
 const BUY = "https://www.cardkingdom.com/cart";
@@ -39,8 +39,8 @@ describe("the sell cart", () => {
 
   test("the line totals come to the header's subtotal", () => {
     const doc = sell();
-    expect(CKB.cartSubtotal(doc)).toBe(sum(readSell(doc)));
-    expect(CKB.cartSubtotal(doc)).toBe(5524);
+    expect(cartSubtotal(doc)).toBe(sum(readSell(doc)));
+    expect(cartSubtotal(doc)).toBe(5524);
   });
 
   test("keeps the card's name as the image gives it", () => {
@@ -80,8 +80,8 @@ describe("the buy cart", () => {
 
   test("the line totals come to the header's subtotal", () => {
     const doc = buy();
-    expect(CKB.cartSubtotal(doc)).toBe(sum(readBuy(doc)));
-    expect(CKB.cartSubtotal(doc)).toBe(1040);
+    expect(cartSubtotal(doc)).toBe(sum(readBuy(doc)));
+    expect(cartSubtotal(doc)).toBe(1040);
   });
 
   test("a line with no condition is unreadable", () => {
@@ -173,11 +173,5 @@ describe("reading a line", () => {
     const doc = sell();
     line(doc, 206649).querySelector(".save-for-later-button a").removeAttribute("data-ckproductid");
     expect(plain(readSell(doc)[0])).toMatchObject({ productID: null, problem: "no product id" });
-  });
-
-  test("a page with no subtotal says so", () => {
-    const doc = sell();
-    doc.querySelector(".header-subtotal").remove();
-    expect(CKB.cartSubtotal(doc)).toBeNull();
   });
 });
