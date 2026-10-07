@@ -43,6 +43,13 @@ describe("the manifest", () => {
     expect(named.filter((name) => !existsSync(new URL(name, root)))).toEqual([]);
   });
 
+  test("runs on the history pages and nowhere else", () => {
+    expect(manifest.content_scripts.flatMap((cs) => cs.matches)).toEqual([
+      "https://www.cardkingdom.com/myaccount/order_history*",
+      "https://www.cardkingdom.com/myaccount/selling_history*",
+    ]);
+  });
+
   test("carries package.json's version", () => {
     expect(manifest.version).toBe(pkg.version);
   });
@@ -61,6 +68,17 @@ describe("the source", () => {
       [...read(name).matchAll(/https?:\/\/[^/"'\s)]+/g)].map((m) => name + ": " + m[0])
     );
     expect(urls.filter((url) => !/: https:\/\/(www|api)\.cardkingdom\.com$/.test(url))).toEqual([]);
+  });
+});
+
+describe("the panel", () => {
+  test("is one fixed width", () => {
+    // Anchored to the right edge, a panel that grew to fit its words would
+    // move its controls under the cursor.
+    const css = read("src/panel.css");
+    const rule = /#ck-banner \{([^}]*)\}/.exec(css)[1];
+    expect(rule).toMatch(/\swidth: 240px;/);
+    expect(css).not.toMatch(/(min|max)-width/);
   });
 });
 

@@ -24,6 +24,10 @@ allowlist, never by editing a saved page down: see `SPECIFICATIONS.md`,
 "Fixtures". `tests/repo.test.js` scans every fixture for what a cut must never
 keep.
 
+`tests/panel.js` runs a content script the way a tab does: the scripts the
+manifest names, in its order, in one happy-dom window at a Card Kingdom
+address, with every fetch and download recorded instead of made.
+
 `tests/saved.test.js` runs the parsers on the saved pages themselves, and
 checks that none of their order ids reached a fixture:
 
@@ -45,6 +49,9 @@ src/net.js       one page at a time: pace, deadline, Cloudflare challenge
 src/money.js     "$1,234.56" to cents and back; CK's dates to their parts
 src/csv.js       the history CSV: its five columns and Go's quoting
 src/history.js   history pages: their rows, which are exported, the walk
+src/ui.js        the panel both pages share, and the file download
+src/historypage.js  content script: year picker and Download CSV
+src/panel.css, src/history.css
 scripts/mutate.mjs   breaks each guard in tests/mutations.json in turn
 scripts/cut-fixtures.py  cuts tests/fixtures/ from saved pages, locally only
 tests/           bun + happy-dom, no browser

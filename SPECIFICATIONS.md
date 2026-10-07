@@ -224,6 +224,14 @@ draws itself; nothing is written under the buttons, and nothing carries a
 `title`. Escape stops whatever is running. While a read runs the page asks
 before it is left.
 
+On the history pages the row is a year (All years, then this year back to
+1999, the year CK opened; this year is chosen) and *Download CSV*. While the
+walk runs the heading counts pages (`3 / 9 pages`). Done, it says how many
+orders the file holds (`34 shipped`, `12 completed`) beside a tick, and the
+tooltip names the file, the pages read, and what was left out by status,
+unpaid, or year. Nothing to save is a red cross and no file. At these
+addresses a page without the history table (a sign-in page) gets no panel.
+
 ## 14. Fixtures
 
 Fixtures are cut from saved pages by a local script and committed; the saved

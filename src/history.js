@@ -129,6 +129,34 @@ globalThis.CKB = globalThis.CKB || {};
     return when ? when.year : null;
   };
 
+  // pick takes the rows the file holds for a year, null for every year, and
+  // counts what it left out: by status, unpaid, and from other years. A row
+  // that would be exported but has no date to file it under refuses the file.
+  CKB.pick = function (rows, kind, year) {
+    var picked = { rows: [], skipped: {}, unpaid: 0, otherYears: 0 };
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (!CKB.exported(row, kind)) {
+        if (row.status === KINDS[kind].done) {
+          picked.unpaid++;
+        } else {
+          picked.skipped[row.status] = (picked.skipped[row.status] || 0) + 1;
+        }
+        continue;
+      }
+      var filed = CKB.yearOf(row, kind);
+      if (filed === null) {
+        throw new Error("Order " + row.orderID + " is " + row.status + " but carries no date to file it under");
+      }
+      if (year !== null && filed !== year) {
+        picked.otherYears++;
+        continue;
+      }
+      picked.rows.push(row);
+    }
+    return picked;
+  };
+
   function count(digits) {
     return Number(digits.replace(/,/g, ""));
   }

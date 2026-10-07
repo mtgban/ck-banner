@@ -1,0 +1,26 @@
+/* The history pages' row: a year, and the button taking the rest. The
+   select is a fixed width so the button never moves as the year changes. */
+
+#ck-banner .ck-banner-year {
+  flex: none;
+  width: 84px;
+  margin: 0;
+  padding: 6px 6px;
+  border: 0;
+  border-radius: 6px;
+
+  background: #33507d;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+#ck-banner .ck-banner-year:focus-visible {
+  outline: 2px solid #8ab4f8;
+  outline-offset: 2px;
+}
+
+#ck-banner .ck-banner-year[disabled] {
+  cursor: default;
+  opacity: 0.55;
+}

@@ -181,3 +181,41 @@ describe("which year a row is filed under", () => {
     expect(CKB.yearOf(rows.find((row) => row.status === "CANCELED"), "sales")).toBeNull();
   });
 });
+
+describe("picking a year's rows", () => {
+  test("a year holds only its own orders, and says what it left out", () => {
+    // Synthetic: one sale from page 1 moved to the year before.
+    const doc = sales();
+    const i = CKB.readHistory(doc, "sales").findIndex((row) => row.status === "COMPLETED");
+    set(doc, i, "Status", " COMPLETED <br><span>Received Dec 30, 2025</span>");
+    const picked = CKB.pick(CKB.readHistory(doc, "sales"), "sales", 2026);
+    expect(picked.rows.length).toBe(18);
+    expect(picked.otherYears).toBe(1);
+    expect(picked.skipped).toEqual({ CANCELED: 6 });
+    expect(picked.unpaid).toBe(0);
+  });
+
+  test("every year takes every exported row", () => {
+    const picked = CKB.pick(CKB.readHistory(sales(), "sales"), "sales", null);
+    expect(picked.rows.length).toBe(19);
+    expect(picked.otherYears).toBe(0);
+  });
+
+  test("an unpaid row in the finished status is counted as unpaid", () => {
+    const doc = sales();
+    const i = CKB.readHistory(doc, "sales").findIndex((row) => row.status === "COMPLETED");
+    set(doc, i, "Payment Method", ' STORECREDIT <br> <span id="paid_status">Unpaid</span><br>');
+    const picked = CKB.pick(CKB.readHistory(doc, "sales"), "sales", null);
+    expect(picked.unpaid).toBe(1);
+    expect(picked.rows.length).toBe(18);
+  });
+
+  test("a row it would export with no date to file it under refuses", () => {
+    const doc = sales();
+    const i = CKB.readHistory(doc, "sales").findIndex((row) => row.status === "COMPLETED");
+    set(doc, i, "Status", " COMPLETED <br>");
+    expect(() => CKB.pick(CKB.readHistory(doc, "sales"), "sales", 2026)).toThrow(
+      "Order 2000003 is COMPLETED but carries no date to file it under"
+    );
+  });
+});

@@ -152,5 +152,47 @@
     "find": "CKB.after(n === 1 ? 0 : pace)",
     "replace": "CKB.after(pace)",
     "expectFailing": "it waits before each page after the first"
+  },
+  {
+    "guard": "a year holds only its own orders",
+    "file": "src/history.js",
+    "find": "if (year !== null && filed !== year) {",
+    "replace": "if (false) {",
+    "expectFailing": "a year holds only its own orders"
+  },
+  {
+    "guard": "a row with no date to file it under refuses the file",
+    "file": "src/history.js",
+    "find": "if (filed === null) {",
+    "replace": "if (false) {",
+    "expectFailing": "a completed sale with no Received date refuses the file"
+  },
+  {
+    "guard": "Escape saves nothing",
+    "file": "src/historypage.js",
+    "find": "if (stale() || walked.cancelled) {",
+    "replace": "if (false) {",
+    "expectFailing": "Escape stops the walk and saves nothing"
+  },
+  {
+    "guard": "no file when nothing matches",
+    "file": "src/historypage.js",
+    "find": "if (!picked.rows.length) {",
+    "replace": "if (false) {",
+    "expectFailing": "no file is offered when nothing matches"
+  },
+  {
+    "guard": "the page is held only while work runs",
+    "file": "src/ui.js",
+    "find": "window.removeEventListener(\"beforeunload\", hold);",
+    "replace": "",
+    "expectFailing": "the page is held only while it reads"
+  },
+  {
+    "guard": "controls are taken away while work runs",
+    "file": "src/ui.js",
+    "find": "controls[i].disabled = on;",
+    "replace": "",
+    "expectFailing": "reads the list and saves the year's orders"
   }
 ]

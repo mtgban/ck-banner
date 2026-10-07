@@ -14,5 +14,26 @@
       "id": "ck-banner@mtgban.com",
       "strict_min_version": "115.0"
     }
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.cardkingdom.com/myaccount/order_history*",
+        "https://www.cardkingdom.com/myaccount/selling_history*"
+      ],
+      "js": [
+        "src/net.js",
+        "src/money.js",
+        "src/csv.js",
+        "src/ui.js",
+        "src/history.js",
+        "src/historypage.js"
+      ],
+      "css": [
+        "src/panel.css",
+        "src/history.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
 }
