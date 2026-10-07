@@ -88,6 +88,8 @@
 
   font-size: 12px;
   line-height: 1.35;
+  /* A recap may hold a line break of its own. */
+  white-space: pre-line;
 
   opacity: 0;
   visibility: hidden;

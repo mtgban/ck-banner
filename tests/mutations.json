@@ -490,6 +490,20 @@
     "expectFailing": "a year is cut from the kept every-year file, with no walk"
   },
   {
+    "guard": "lines left unmarked do not set off another marking",
+    "file": "src/cartpage.js",
+    "find": "return !wanted[l.lineID] || !l.host ||",
+    "replace": "return !l.host ||",
+    "expectFailing": "its own marks, and the lines it leaves unmarked, do not make it mark again"
+  },
+  {
+    "guard": "Refresh is greyed out while the list is fresh",
+    "file": "src/cartpage.js",
+    "find": "button.disabled = left > 0;",
+    "replace": "button.disabled = false;",
+    "expectFailing": "Refresh is greyed out while the list is fresh, and comes back as it ages"
+  },
+  {
     "guard": "a card's key tells foil from plain",
     "file": "src/prices.js",
     "find": "+ (foil ? \"|foil\" : \"\"));",

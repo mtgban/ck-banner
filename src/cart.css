@@ -3,29 +3,35 @@
    `.cart-product-list .cart-interaction-wrapper :not(.btn,.cart-tag)` reset,
    three classes deep, does not strip it. */
 
-.cart-product-list .cart-interaction-wrapper .ck-banner-line {
-  position: relative;
-  display: inline-block;
-  margin: 0 8px 0 0;
-  padding: 0;
-  vertical-align: middle;
+.cart-product-list .cart-interaction-wrapper .save-for-later-button.ck-banner-host {
+  /* One row, right-aligned: the mark, then Save for Later. */
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 6px;
 }
 
+.cart-product-list .cart-interaction-wrapper .ck-banner-line {
+  position: relative;
+  margin: 0;
+  padding: 0;
+}
+
+/* The height and top margin of CK's own `.save-for-later-button .btn`, so
+   the mark lines up with Save for Later beside it. */
 .cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-badge {
   display: inline-block;
   box-sizing: border-box;
-  /* One width for every worded badge, so lines line up whatever they say. */
-  min-width: 112px;
-  margin: 0;
-  padding: 3px 8px;
+  margin: 6px 0 0;
+  padding: 7px 12px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 0;
 
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
   text-align: center;
+  white-space: nowrap;
   cursor: default;
 }
 
@@ -41,9 +47,7 @@
   color: #8a5a00;
 }
 
-/* A tick or a question mark, so narrow. */
 .cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-quiet {
-  min-width: 28px;
   background: #f1f1f1;
   border-color: #ddd;
   color: #666;
@@ -101,13 +105,10 @@
   }
 }
 
-/* Update price: CK's own .btn look, in the badges' width so a line's
-   control is the same size whatever it says. */
+/* Update price is drawn by CK's own `.save-for-later-button .btn` rule,
+   exactly like Save for Later beside it. */
 .cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-update {
-  min-width: 112px;
-  margin: 0;
-  font-weight: 600;
-  color: #1d6b38;
+  white-space: nowrap;
 }
 
 .cart-product-list .cart-interaction-wrapper .ck-banner-line .ck-banner-update[disabled] {

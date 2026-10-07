@@ -134,7 +134,7 @@ First match wins:
 | `qty_buying` is 0 | wants 0 | amber "Wants 0" |
 | list pays more | better | *Update price* (section 7) |
 | list pays less | worse | amber "List is lower" |
-| equal | same | grey tick |
+| equal | same | nothing |
 
 On the buy cart the same table runs the other way, against the list's price
 and quantity for the line's condition:
@@ -147,21 +147,22 @@ and quantity for the line's condition:
 | none in stock in that condition | none in stock | amber "None in stock" |
 | list charges less | reduced | green "Price dropped" |
 | list charges more | raised | amber "List is higher" |
-| equal | same | grey tick |
+| equal | same | nothing |
 
 A line's id must name the card its image shows: the list row's key (section
 4) is checked against the line's `alt` and FOIL label, and a line whose id
-names another card is not compared. Each mark is a badge placed first in the line's
-*Save for Later* box, beside the link and never inside it, with a tooltip the
-badge draws on hover or focus: the list's price each, the cart's, the
-difference each and on the line's quantity, and when the list was built.
-Every comparison is with a snapshot, and the tooltips say so; none of them
-promises a checkout price.
+names another card is not compared. A line the list agrees with is left
+unmarked. Each other mark sits left of *Save for Later* in one row, never
+inside its link: a square badge as tall as CK's button, or *Update price*
+drawn exactly like *Save for Later*. Its tooltip is one line: the list's price
+and the cart's ("List pays $0.05, cart has $0.10 (-$0.05 each).", "List asks
+$1.50 in VG, cart has $1.74 (-$0.24 each).", "Not in the price list."). Every
+comparison is with a snapshot; none promises a checkout price.
 
 The page is redrawn by Vue, so marking is idempotent: a line's old mark is
 removed before its new one goes in, and an observer marks the cart again only
-when its lines change or a redraw took a mark away, never because of its own
-marks.
+when its lines change or a redraw took away a mark it had made, never because
+of its own marks or the lines it leaves unmarked.
 
 ## 7. Update price
 
@@ -184,9 +185,9 @@ the line is its one NM line for the product, read for `qty`, `price` and
 
 | Answer for the line | Shown | Then |
 |---------------------|-------|------|
-| `qty` is q and `price` equals `product.price_buy` | green "Updated": "Card Kingdom now pays $X each" (and "not the $Y its list showed" when they differ) | the page reloads to show CK's own figures |
+| `qty` is q and `price` equals `product.price_buy` | the button stays "Updating" | the page reloads to show CK's own figures |
 | `qty` is q, `price` is not `product.price_buy` | amber "Price kept": "Card Kingdom kept $Y each. Remove the card and add it again to take $X each." | nothing more is sent |
-| `qty` is not q | red "Quantity changed" | q is put back through the line's own quantity form (`POST /sellcart/lineitem/<id>`, an absolute `qty` and the form's `_token`, as the cart page does), to the line id CK's answer names; then the page reloads |
+| `qty` is not q | the button stays "Updating" | q is put back through the line's own quantity form (`POST /sellcart/lineitem/<id>`, an absolute `qty` and the form's `_token`, as the cart page does), to the line id CK's answer names; then the page reloads |
 | no single NM line for the product, not 200, not JSON, no answer | red "Not updated" with the reason | the panel says to reload; every other *Update price* stays disabled until then, since the cart may no longer be what the page shows |
 
 While a request runs, every *Update price* and *Refresh* is disabled, the
@@ -318,14 +319,15 @@ comes from the one kept (section 12), the button turns into *Rebuild* until
 the year changes. At these addresses a page without the history table (a
 sign-in page) gets no panel.
 
-On the carts the row is one button, *Check prices*, then *Refresh* once the
-cart is marked; the list is read only on that click. While it reads the
-heading says `reading list`. Done, the heading counts the lines the list now
-favours (`3 better` on the sell cart, `2 dropped` on the buy cart, or `none`)
-beside a tick, and the tooltip counts every verdict by name, what the better
-prices would add (or the drops take off), when the list was built and read,
-and, when the lines read do not come to the cart's Subtotal, that a line may
-not have been read. A refused read is a red cross with the reason, and marks
+On the carts the row is one button, *Load prices*, then *Refresh* once the
+cart is marked; the list is read only on that click, and *Refresh* is greyed
+out while the list in hand is fresh, since reading it again would change
+nothing, until the hour runs out. While it reads the heading says `fetching
+prices`. Done, the heading counts the lines the list now favours in the same
+word on both carts (`3 better`), or says `ready`, beside a tick. The tooltip
+is two lines: every verdict counted ("2 prices are the same", "1 price is
+better, 1 worse, 5 the same"), then when the list was built ("Price list of
+2026-09-17 04:04"). A refused read is a red cross with the reason, and marks
 already on the page stay. Escape stops a read and keeps nothing. A cart with
 no lines gets no panel.
 

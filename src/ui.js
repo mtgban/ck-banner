@@ -23,7 +23,7 @@ globalThis.CKB = globalThis.CKB || {};
     root.id = "ck-banner";
     root.innerHTML =
       '<div class="ck-banner-label" tabindex="0" aria-describedby="ck-banner-tip">' +
-      'CK BAN<i class="ck-banner-ner">ner</i> - ' +
+      'CK BAN<i class="ck-banner-ner">ner</i><span class="ck-banner-sep"> - </span>' +
       '<span class="ck-banner-spin" aria-hidden="true"></span>' +
       '<b class="ck-banner-word"></b>' +
       '<span class="ck-banner-mark" aria-hidden="true" hidden></span>' +
@@ -53,8 +53,11 @@ globalThis.CKB = globalThis.CKB || {};
       root: root,
       actions: at(".ck-banner-actions"),
 
+      // word is the heading's one word; with none, the heading is just the
+      // name and its mark.
       word: function (text) {
         at(".ck-banner-word").textContent = text;
+        at(".ck-banner-sep").hidden = !text;
       },
 
       hint: function (text) {

@@ -15,23 +15,24 @@
     return;
   }
 
-  // A better line has no badge: it gets Update price (update below).
+  // A better sell line gets Update price instead (update below), and a line
+  // the list agrees with gets no mark at all.
   var BADGES = {
     dropped: ["Price dropped", "good"],
     worse: ["List is lower", "warn"],
     raised: ["List is higher", "warn"],
     wants0: ["Wants 0", "warn"],
     nostock: ["None in stock", "warn"],
-    same: ["✓", "quiet"],
     unlisted: ["?", "quiet"],
     mismatch: ["?", "quiet"],
     unreadable: ["?", "quiet"],
   };
 
-  // The panel's count, in the order the spec's table gives them.
+  // The panel's count, in the order the spec's table gives them, in the
+  // same words on both carts: better is the side that favours the visitor.
   var ORDER = {
     sell: [["better", "better"], ["worse", "worse"], ["wants0", "not wanted"], ["same", "the same"]],
-    buy: [["dropped", "dropped"], ["raised", "higher"], ["nostock", "out of stock"], ["same", "the same"]],
+    buy: [["dropped", "better"], ["raised", "worse"], ["nostock", "out of stock"], ["same", "the same"]],
   };
   var SKIPPED = [["unlisted", "not listed"], ["mismatch", "not matching"], ["unreadable", "unreadable"]];
 
@@ -47,6 +48,9 @@
   var writing = false;
   var locked = false;
   var lastSummary = null;
+  // wanted is the lines the last marking gave a mark, by line id.
+  var wanted = {};
+  var expiry = null;
 
   CKB.reload = function () {
     location.reload();
@@ -61,33 +65,24 @@
   }
 
   function lineTip(line, result) {
-    var p = result.price;
-    var c = line.each;
-    var built = " Price list built " + list.createdAt + ".";
+    var p = CKB.dollars(result.price);
+    var c = CKB.dollars(line.each);
+    var by = " (" + change(result.price - line.each) + " each)";
     switch (result.verdict) {
       case "better":
-        return "Card Kingdom's list now pays " + each(p) + "; the cart has " + CKB.dollars(c) + " (" +
-          change(p - c) + " each, " + change((p - c) * line.qty) + " on " + line.qty + ")." + built +
-          (side === "sell" ? " Update price asks Card Kingdom to reprice this line." : "");
       case "worse":
-        return "Card Kingdom's list now pays " + each(p) + ", below the cart's " + CKB.dollars(c) + " (" +
-          change(p - c) + " each)." + built;
+        return "List pays " + p + ", cart has " + c + by + ".";
       case "wants0":
-        return "Card Kingdom's list wants none of this card, at " + each(p) + "." + built;
+        return "List wants none, at " + p + ".";
       case "dropped":
-        return "Card Kingdom now asks " + each(p) + " in " + line.condition + ", below the cart's " +
-          CKB.dollars(c) + " (" + change(p - c) + " each, " + change((p - c) * line.qty) + " on " + line.qty + ")." + built;
       case "raised":
-        return "Card Kingdom now asks " + each(p) + " in " + line.condition + ", above the cart's " +
-          CKB.dollars(c) + " (" + change(p - c) + " each)." + built;
+        return "List asks " + p + " in " + line.condition + ", cart has " + c + by + ".";
       case "nostock":
-        return "Card Kingdom's list has no " + line.condition + " copies in stock, at " + each(p) + "." + built;
-      case "same":
-        return "Matches Card Kingdom's list (" + each(p) + ")." + built;
+        return "List has no " + line.condition + " in stock, at " + p + ".";
       case "unlisted":
-        return "Not in Card Kingdom's price list (id " + line.productID + ").";
+        return "Not in the price list.";
       case "mismatch":
-        return "This line's card is not the one its id names in Card Kingdom's price list, so it was not compared.";
+        return "Could not match this card to the price list (id " + line.productID + ").";
       default:
         return "Could not read this line: " + line.problem + ".";
     }
@@ -103,6 +98,11 @@
     for (var i = 0; i < old.length; i++) {
       old[i].remove();
     }
+    if (result.verdict === "same") {
+      return;
+    }
+    // The box lays its controls out in one row, the mark left of the link.
+    line.host.classList.add("ck-banner-host");
     var box = document.createElement("div");
     box.className = "ck-banner-line";
     box.setAttribute("data-line", String(line.lineID));
@@ -179,7 +179,6 @@
       return;
     }
 
-    var listed = CKB.compare(line, list, side).price;
     writing = true;
     updates(true);
     box.querySelector(".ck-banner-update").textContent = "Updating";
@@ -187,26 +186,19 @@
     panel.word("updating");
     panel.busy(true);
     CKB.updatePrice(line).then(function (answer) {
-      answered(line, box, listed, answer);
+      answered(line, box, answer);
     });
   }
 
-  function answered(line, box, listed, answer) {
+  function answered(line, box, answer) {
+    // Both of these end in a reload, so the line stays "Updating" until the
+    // cart shows CK's own figures; nothing else is sent.
     if (answer.outcome === "repriced") {
-      var note = answer.price !== listed ? ", not the " + CKB.dollars(listed) + " its list showed" : "";
-      swap(box, "Updated", "good", "Card Kingdom now pays " + each(answer.price) + note + ".");
-      panel.word("updated");
-      panel.mark("done");
-      // Reloaded so the cart shows CK's own figures; nothing else is sent.
-      setTimeout(function () {
-        panel.busy(false);
-        CKB.reload();
-      }, 800);
+      panel.busy(false);
+      CKB.reload();
       return;
     }
     if (answer.outcome === "quantity") {
-      swap(box, "Quantity changed", "bad", "Card Kingdom set the quantity to " + answer.qty + "; putting it back to " + line.qty + ".");
-      panel.word("restoring");
       CKB.restoreQuantity(line, answer.lineID, line.qty).then(function () {
         panel.busy(false);
         CKB.reload();
@@ -238,68 +230,60 @@
       .join("|");
   }
 
-  function clock(ms) {
-    var at = new Date(ms);
-    return String(at.getHours()).padStart(2, "0") + ":" + String(at.getMinutes()).padStart(2, "0");
-  }
-
-  // summary is the panel's count and its tooltip: every verdict by name,
-  // what the better (or dropped) lines come to, and how old the list is.
-  function summary(lines, counts, gain, lasting) {
+  // summary is the panel's count and its tooltip: how many lines the list
+  // now favours, every verdict by name, and when the list was built.
+  function summary(counts) {
     var key = ORDER[side][0][0];
-    panel.word(counts[key] ? counts[key] + " " + ORDER[side][0][1] : "none " + ORDER[side][0][1]);
+    panel.word(counts[key] ? counts[key] + " " + ORDER[side][0][1] : "ready");
     panel.mark("done");
+    refreshable();
 
+    // "2 prices are the same", then when the list is from, on its own line.
     var said = [];
     ORDER[side].concat(SKIPPED).forEach(function (pair) {
-      if (counts[pair[0]]) {
-        said.push(counts[pair[0]] + " " + pair[1]);
+      var n = counts[pair[0]];
+      if (n) {
+        said.push(said.length ? n + " " + pair[1] : n + (n === 1 ? " price is " : " prices are ") + pair[1]);
       }
     });
-    var text = said.join(", ") + ".";
-    if (gain) {
-      text += side === "sell"
-        ? " Every better price would add " + CKB.dollars(gain) + "."
-        : " The drops come to " + CKB.dollars(-gain) + " off the cart.";
-    }
-    text += " Price list built " + list.createdAt + ", read at " + clock(list.fetchedAt) + ".";
-    if (!lasting) {
-      text += " It is kept for this page only: this browser does not let the site store it.";
-    }
-    var subtotal = CKB.cartSubtotal(document);
-    var total = lines.reduce(function (sum, l) {
-      return sum + (l.total || 0);
-    }, 0);
-    if (subtotal !== null && subtotal !== total) {
-      text += " The lines read come to " + CKB.dollars(total) + " of the cart's " + CKB.dollars(subtotal) +
-        " Subtotal, so a line may not have been read.";
-    }
-    panel.recap(text);
+    panel.recap(said.join(", ") + "\nPrice list of " + list.createdAt.replace(/:\d\d$/, ""));
   }
 
-  function annotate(lasting) {
+  // refreshable greys Refresh out while the list in hand is fresh, since
+  // reading it again would change nothing, and brings it back as it ages.
+  function refreshable() {
+    var left = list ? list.fetchedAt + CKB.LIST_TTL - Date.now() : 0;
+    button.disabled = left > 0;
+    clearTimeout(expiry);
+    if (left > 0) {
+      expiry = setTimeout(refreshable, left);
+    }
+  }
+
+  function annotate() {
     var lines = CKB.readCart(document, location.href, side);
     var counts = {};
-    var gain = 0;
+    wanted = {};
     lines.forEach(function (line) {
       var result = CKB.compare(line, list, side);
       mark(line, result);
       counts[result.verdict] = (counts[result.verdict] || 0) + 1;
-      if (result.verdict === "better" || result.verdict === "dropped") {
-        gain += (result.price - line.each) * line.qty;
+      if (result.verdict !== "same") {
+        wanted[line.lineID] = true;
       }
     });
     shown = signature(lines);
     lastSummary = function () {
-      summary(lines, counts, gain, lasting);
+      summary(counts);
     };
     lastSummary();
     button.textContent = "Refresh";
   }
 
+  // marked says whether every line the last marking marked still has it.
   function marked(lines) {
     return lines.every(function (l) {
-      return !l.host || l.host.querySelector('.ck-banner-line[data-line="' + l.lineID + '"]');
+      return !wanted[l.lineID] || !l.host || l.host.querySelector('.ck-banner-line[data-line="' + l.lineID + '"]');
     });
   }
 
@@ -316,7 +300,7 @@
     var controller = new AbortController();
     reading = controller;
     panel.clear();
-    panel.word("reading list");
+    panel.word("fetching prices");
     panel.busy(true);
     CKB.fetchList({ signal: controller.signal })
       .then(function (fetched) {
@@ -327,7 +311,7 @@
         list = fetched;
         panel.busy(false);
         return store.then(function (s) {
-          annotate(s.lasting);
+          annotate();
           return CKB.keepList(s, fetched).catch(function () {});
         });
       })
@@ -352,7 +336,7 @@
       return Promise.resolve();
     }
     return store.then(function (s) {
-      annotate(s.lasting);
+      annotate();
     });
   }
 
@@ -375,7 +359,7 @@
       return;
     }
     store.then(function (s) {
-      annotate(s.lasting);
+      annotate();
     });
   }
 
@@ -387,7 +371,7 @@
     button = document.createElement("button");
     button.type = "button";
     button.className = "ck-banner-go";
-    button.textContent = "Check prices";
+    button.textContent = "Load prices";
     button.addEventListener("click", check);
     panel.actions.appendChild(button);
     panel.root.hidden = !CKB.readCart(document, location.href, side).length;
@@ -399,7 +383,7 @@
         return CKB.keptList(s, Date.now()).then(function (kept) {
           if (kept && !list && !reading) {
             list = kept;
-            annotate(s.lasting);
+            annotate();
           }
         });
       })
