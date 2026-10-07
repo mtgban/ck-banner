@@ -469,6 +469,13 @@
     "expectFailing": "a file of this year or every year is used for a day, no longer"
   },
   {
+    "guard": "a year is over by when the file was built",
+    "file": "src/history.js",
+    "find": "entry.builtAt < new Date(year + 1, 0, 2).getTime()",
+    "replace": "year >= new Date(now).getFullYear()",
+    "expectFailing": "a file built as its year turned is used for a day only"
+  },
+  {
     "guard": "Rebuild always reads the list",
     "file": "src/historypage.js",
     "find": "var own = !force && CKB.usableFile(found[0], signature, y, now) ? found[0] : null;",

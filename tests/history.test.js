@@ -256,4 +256,13 @@ describe("the kept file", () => {
   test("a past year's file is used for as long as page 1 holds", () => {
     expect(CKB.usableFile(file({ builtAt: NOW - 30 * CKB.FILE_TTL }), signature(), 2025, NOW)).toBe(true);
   });
+
+  test("a file built as its year turned is used for a day only", () => {
+    const eve = new Date(2025, 11, 31, 23).getTime();
+    const after = new Date(2026, 0, 2).getTime();
+    expect(CKB.usableFile(file({ builtAt: eve }), signature(), 2025, eve + CKB.FILE_TTL - 1)).toBe(true);
+    expect(CKB.usableFile(file({ builtAt: eve }), signature(), 2025, eve + CKB.FILE_TTL)).toBe(false);
+    expect(CKB.usableFile(file({ builtAt: after - 1 }), signature(), 2025, NOW)).toBe(false);
+    expect(CKB.usableFile(file({ builtAt: after }), signature(), 2025, NOW)).toBe(true);
+  });
 });

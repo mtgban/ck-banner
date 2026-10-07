@@ -296,8 +296,9 @@ found replaces what was kept: a file, or that the year holds no orders,
 which is then said again, with *Rebuild*, while page 1 holds. A refused or
 cancelled walk keeps nothing and leaves the kept file as it was. A change further down the list
 does not move the signature, so a file holding this year's orders, or every
-year's, is used for a day and then built again; a past year's file is used
-for as long as page 1 holds.
+year's, is used for a day and then built again; a past year's file built
+once the year was over (a day past its turn in the browser's time zone,
+which is past it in CK's too) is used for as long as page 1 holds.
 
 The every-year file also keeps its rows (the five columns and each row's
 year), so any single year is cut from it with no walk beyond page 1, while
