@@ -3,10 +3,12 @@
 //
 // It works on a copy in a temporary directory, so the working tree is never
 // touched. The copy holds what git would track (ignored files, saved pages
-// among them, stay put), with node_modules linked in.
+// among them, stay put), with node_modules linked in. The whole suite runs
+// once, unmutated; each mutation then runs only the test it names, in the
+// files that hold it, since no other test can report it.
 
 import { spawnSync } from "child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -14,6 +16,18 @@ import { fileURLToPath } from "url";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const mutations = JSON.parse(readFileSync(join(root, "tests/mutations.json"), "utf8"));
 const bun = process.versions.bun ? process.execPath : "bun";
+const testFiles = readdirSync(join(root, "tests"))
+  .filter((name) => name.endsWith(".test.js"))
+  .map((name) => "tests/" + name);
+
+// holding is the test files whose source names a test.
+function holding(name) {
+  return testFiles.filter((file) => readFileSync(join(root, file), "utf8").includes(name));
+}
+
+function pattern(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 function tracked() {
   const listed = spawnSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
@@ -30,9 +44,10 @@ function tracked() {
 // makes it hang must fail the runner rather than stall it.
 const LIMIT = 120000;
 
-// run answers with the suite's exit status and the names of its failed tests.
-function run(dir) {
-  const result = spawnSync(bun, ["test", "tests/"], {
+// run answers with a test run's exit status and the names of its failed
+// tests; args picks what runs, the whole suite by default.
+function run(dir, args = ["tests/"]) {
+  const result = spawnSync(bun, ["test", ...args], {
     cwd: dir,
     encoding: "utf8",
     timeout: LIMIT,
@@ -62,6 +77,12 @@ try {
   }
 
   for (const m of mutations) {
+    const files = holding(m.expectFailing);
+    if (!files.length) {
+      console.log(`UNKNOWN  ${m.guard}: no test file names "${m.expectFailing}"`);
+      missed++;
+      continue;
+    }
     const file = join(copy, m.file);
     const original = readFileSync(file, "utf8");
     const found = original.split(m.find).length - 1;
@@ -72,7 +93,7 @@ try {
       continue;
     }
     writeFileSync(file, original.replace(m.find, () => m.replace));
-    const result = run(copy);
+    const result = run(copy, [...files, "-t", pattern(m.expectFailing)]);
     writeFileSync(file, original);
 
     if (result.status !== 0 && result.failed.some((line) => line.includes(m.expectFailing))) {
@@ -81,11 +102,11 @@ try {
     }
     missed++;
     if (result.timedOut) {
-      console.log(`TIMED OUT ${m.guard}: the suite did not finish in ${LIMIT / 1000} s`);
+      console.log(`TIMED OUT ${m.guard}: the test did not finish in ${LIMIT / 1000} s`);
       continue;
     }
     if (result.status !== 0 && result.failed.length === 0) {
-      console.log(`BROKEN   ${m.guard}: the suite did not run; is the replacement valid code?`);
+      console.log(`BROKEN   ${m.guard}: the test did not run; is the replacement valid code?`);
       continue;
     }
     console.log(`SURVIVED ${m.guard}: no failing test named "${m.expectFailing}"`);
