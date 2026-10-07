@@ -33,6 +33,16 @@ globalThis.CKB = globalThis.CKB || {};
     return Number(m[1].replace(/,/g, "")) * 100 + Number(m[2]);
   };
 
+  // listCents reads a price list's "6.4" or "599.99" as cents, and answers
+  // null for any other shape: no sign, no grouping, at most two decimals.
+  CKB.listCents = function (text) {
+    var m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(typeof text === "string" ? text : "");
+    if (!m) {
+      return null;
+    }
+    return Number(m[1]) * 100 + Number(((m[2] || "") + "00").slice(0, 2));
+  };
+
   // dollars writes cents the way Card Kingdom prints them, with a leading
   // minus for a difference that goes down.
   CKB.dollars = function (cents) {

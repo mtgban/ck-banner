@@ -243,5 +243,61 @@
     "find": "(side === \"buy\" ? text(price.querySelector(\".cart-item-price\")) : firstText(price))",
     "replace": "firstText(price)",
     "expectFailing": "reads every line, in order, with its condition"
+  },
+  {
+    "guard": "a list exactly an hour old is stale",
+    "file": "src/store.js",
+    "find": "return age >= 0 && age < CKB.LIST_TTL;",
+    "replace": "return age >= 0 && age <= CKB.LIST_TTL;",
+    "expectFailing": "a list exactly an hour old is stale"
+  },
+  {
+    "guard": "a list dated in the future is not used",
+    "file": "src/store.js",
+    "find": "return age >= 0 && age < CKB.LIST_TTL;",
+    "replace": "return age < CKB.LIST_TTL;",
+    "expectFailing": "a list dated in the future is not used"
+  },
+  {
+    "guard": "a kept list of another version is not used",
+    "file": "src/store.js",
+    "find": "if (!list || list.v !== CKB.LIST_VERSION || typeof list.fetchedAt",
+    "replace": "if (!list || typeof list.fetchedAt",
+    "expectFailing": "a list of another version is not used"
+  },
+  {
+    "guard": "the list is fetched without cookies",
+    "file": "src/prices.js",
+    "find": "{ credentials: \"omit\", signal: controller.signal }",
+    "replace": "{ credentials: \"include\", signal: controller.signal }",
+    "expectFailing": "asks without cookies or custom headers, so no preflight"
+  },
+  {
+    "guard": "the list is fetched without custom headers",
+    "file": "src/prices.js",
+    "find": "{ credentials: \"omit\", signal: controller.signal }",
+    "replace": "{ credentials: \"omit\", headers: { Accept: \"application/json\" }, signal: controller.signal }",
+    "expectFailing": "asks without cookies or custom headers, so no preflight"
+  },
+  {
+    "guard": "a list price has at most two decimals",
+    "file": "src/money.js",
+    "find": "/^(\\d+)(?:\\.(\\d{1,2}))?$/",
+    "replace": "/^(\\d+)(?:\\.(\\d{1,3}))?$/",
+    "expectFailing": "refuses more than two decimals or any other shape"
+  },
+  {
+    "guard": "an id listed twice is dropped",
+    "file": "src/prices.js",
+    "find": "if (twin) {",
+    "replace": "if (false) {",
+    "expectFailing": "an id listed twice is dropped altogether"
+  },
+  {
+    "guard": "the name key is the card as the cart names it",
+    "file": "src/prices.js",
+    "find": "? CKB.nameKey(CKB.listName(row)) : null,",
+    "replace": "? CKB.nameKey(row.name) : null,",
+    "expectFailing": "a row's name key matches its cart line's card"
   }
 ]

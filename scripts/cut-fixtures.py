@@ -17,8 +17,9 @@ the list's size (its results line and pager) is a synthetic one. Every date
 moves to a synthetic one that keeps the page's order; statuses stay as
 printed. A cart keeps CK's markup and none of the account's items: each line
 is refilled with an item drawn at random (seeded) from a price list, at that
-list's price, with line ids renumbered and every _token replaced. The script
-then checks its own output for anything it should have removed, and refuses
+list's price, with line ids renumbered and every _token replaced; the list's
+rows for those items are written as pricelist.json. The script then checks
+its own output for anything it should have removed, and refuses
 to write if it finds one.
 """
 
@@ -342,7 +343,10 @@ class Catalogue:
 
     def __init__(self, path, avoid):
         with open(path, encoding="utf-8") as f:
-            self.rows = sorted(json.load(f)["data"], key=lambda r: r["id"])
+            listed = json.load(f)
+        self.meta = listed["meta"]
+        self.rows = sorted(listed["data"], key=lambda r: r["id"])
+        self.drawn = []
         self.rng = random.Random(SEED)
         self.used = {int(v) for v in avoid if v.isdigit()}
         self.names = {v for v in avoid if not v.isdigit()}
@@ -372,6 +376,7 @@ class Catalogue:
 
         row = self.rng.choice([r for r in self.rows if fits(r)])
         self.used.add(row["id"])
+        self.drawn.append(row)
         return row
 
 
@@ -607,6 +612,11 @@ def main():
             write("sell-cart.html", cut_sell(args.cart, catalogue), "sell cart", CART)
         if args.buy:
             write("buy-cart.html", cut_buy(args.buy, catalogue), "buy cart", CART)
+        # The list the carts were drawn from, cut to their items, as published.
+        rows = sorted(catalogue.drawn, key=lambda r: r["id"])
+        with open(os.path.join(OUT, "pricelist.json"), "w", encoding="utf-8") as f:
+            f.write(json.dumps({"meta": catalogue.meta, "data": rows}, indent=1) + "\n")
+        print("wrote pricelist.json")
 
 
 if __name__ == "__main__":

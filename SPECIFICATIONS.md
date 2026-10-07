@@ -90,11 +90,18 @@ each row has `id`, `sku`, `scryfall_id`, `url`, `name`, `variation`,
 `qty_retail`, `price_buy` (dollars as a string), `qty_buying`, and retail
 `condition_values`.
 
-The list is about 94 MB and 150,000 rows. On arrival it is reduced to arrays
-sorted by id: id, `price_buy` in integer cents (a price that is not plain
-dollars and cents is skipped and counted) and `qty_buying` for the sell cart,
-and each condition's retail price and quantity from `condition_values` for
-the buy cart. `created_at` is kept and shown, so a reader can tell "CK changed
+The list is about 70 MB and 151,000 rows (the 2026-09-17 list). On arrival
+it is reduced to arrays sorted by id, about 7 MB: `price_buy` in integer
+cents and `qty_buying` for the sell cart; each condition's retail price and
+quantity from `condition_values` for the buy cart; and a 32-bit key of the
+card's name as the carts' images spell it (`Edition[ Foil]: Name[
+(Variation)]`), which checks that a line's product id points at the card the
+line shows. Prices must be plain dollars and at most two decimals. A row with
+any field of another shape is skipped and counted, and an id listed twice is
+dropped altogether, since which of its rows is right cannot be told. On the
+2026-09-17 list every one of the 151,487 rows was kept, every name was
+distinct and no two names shared a key; parsing and reducing took about a
+quarter of a second in bun. A read that has not finished in two minutes fails. `created_at` is kept and shown, so a reader can tell "CK changed
 the price" from "the list is older than the cart".
 
 Singles only. Sealed lines are not compared until a saved cart with one has
@@ -103,8 +110,9 @@ been seen.
 ## 5. The one-hour cache
 
 The reduced list is stored in IndexedDB on www.cardkingdom.com (no permission
-needed). It is fresh while less than an hour old; at exactly an hour it is
-stale. A stale or missing list is never used: the panel offers *Check prices*
+needed), database `ck-banner`, store `cache`. It is fresh while less than an
+hour old; at exactly an hour it is stale, and one dated in the future (the
+clock moved back) is stale too. A stale or missing list is never used: the panel offers *Check prices*
 and marks nothing. An entry of the wrong shape or schema version counts as
 missing. Where IndexedDB is unavailable (some private windows), the list is
 held for the page's life and the tooltip says so.
