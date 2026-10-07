@@ -110,9 +110,12 @@ difference in dollars.
 One request per click, for one *better* line, while the list is fresh:
 `POST https://www.cardkingdom.com/api/sellcart/add` with JSON
 `{"product_id": ..., "style": "NM", "quantity": q}`, q being the line's
-current quantity. This endpoint sets how many of a product the cart holds, on
-the product's single line; go-mtgban's CK cart client and its `mp2ckbl` tool
-rely on exactly that.
+current quantity. go-mtgban's CK cart client sends the same request. For a
+product already in the cart, whether it sets the quantity or adds to it, and
+whether it reprices the line, is not known; the response shows both, and the
+table below covers each outcome. CK's own cart page changes a quantity through
+the line's form instead (`POST /sellcart/lineitem/<id>` with an absolute
+`qty`), which is how a wrong quantity is put back.
 
 CK's response, not the cached list, says what happened. It is the whole cart:
 per line `product_id`, `style`, `qty`, `price`, `original_price` and
@@ -249,8 +252,9 @@ cheap card while the account's owner watches.
 
 ## 16. Not yet known
 
-- Whether setting a line to its own quantity reprices it, or whether only
-  removing and re-adding does. Section 7's response handling covers both.
+- What the add request does to a product already in the cart: whether it sets
+  the quantity or adds to it, and whether it reprices the line or only removing
+  and re-adding does. Section 7's response handling covers each case.
 - How often the price list is rebuilt (`created_at`), and so how often it is
   older than the cart.
 - What the history pages' 25 / 50 / 100 page-size choice does; the walk uses

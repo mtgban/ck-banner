@@ -86,8 +86,9 @@ the selling history the status cell's attribute is misspelled `id-=`.
 ## Working with the other repositories
 
 The sell cart's add endpoint, its JSON body and the `CartResponse` it returns
-are go-mtgban's (`cardkingdom/utils.go`); its `cmd/mp2ckbl` tool shows the
-endpoint sets a product's quantity and how it checks the response. The price
+are go-mtgban's (`cardkingdom/utils.go`). What the endpoint does to a product
+already in the cart is not known; `SPECIFICATIONS.md`, "Update price", says
+how the extension copes with either answer. The price
 list is the one go-mtgban's CK scraper reads, at the URL go-cardkingdom
 publishes. cm-banner is the sibling: share its conventions, not its code.
 
