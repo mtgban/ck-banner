@@ -44,7 +44,7 @@ icons/           the BAN stroopwafel, shared with cm-banner
 src/net.js       one page at a time: pace, deadline, Cloudflare challenge
 src/money.js     "$1,234.56" to cents and back; CK's dates to their parts
 src/csv.js       the history CSV: its five columns and Go's quoting
-src/history.js   a history page's rows, which are exported, and their year
+src/history.js   history pages: their rows, which are exported, the walk
 scripts/mutate.mjs   breaks each guard in tests/mutations.json in turn
 scripts/cut-fixtures.py  cuts tests/fixtures/ from saved pages, locally only
 tests/           bun + happy-dom, no browser

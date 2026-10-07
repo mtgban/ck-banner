@@ -9,8 +9,9 @@ Run locally, never in CI:
 A saved page belongs to a signed-in account, so the fragment under test is
 rebuilt rather than edited down: only allowlisted attributes survive, address
 and tracking cells are replaced whole, every order id is renumbered wherever it
-appears, and every amount is replaced with a synthetic one of the same shape.
-Dates and statuses stay as printed. The script then checks its own output for
+appears, every amount is replaced with a synthetic one of the same shape, and
+the list's size (its results line and pager) is a synthetic one. Dates and
+statuses stay as printed. The script then checks its own output for
 anything it should have removed, and refuses to write if it finds one.
 """
 
@@ -22,7 +23,7 @@ import sys
 from html.parser import HTMLParser
 
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
-KEEP = {"class", "id", "id-", "colspan", "role", "href", "aria-label", "method", "action", "name", "type", "value"}
+KEEP = {"class", "id", "id-", "colspan", "role", "href", "aria-label", "method", "action", "name", "type", "value", "for", "selected"}
 SITE = "https://www.cardkingdom.com/"
 MONEY = re.compile(r"\$[\d,]+\.\d{2}")
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests", "fixtures")
@@ -126,11 +127,35 @@ def history_rows(table):
     return [tr for tr in walk(table) if tr.tag == "tr" and any(isinstance(k, Node) and k.tag == "td" for k in tr.kids)]
 
 
-def cut_history(path, address_id, first_id):
+def resize(nav, per, total):
+    """Rewrites the results line and the pager for a list of total orders."""
+    pages = -(-total // per)
+    counts = [n for n in walk(nav) if classed(n, "resultsCount")]
+    said = [text(n).strip() for n in counts]
+    for n in counts:
+        n.kids = [f"1 - {per} of {total} results"]
+    final = only((n for n in walk(nav) if n.tag == "a" and n.attr("aria-label") == "Display Final Results Page"), "final page link")
+    was = re.sub(r"\D", "", text(final))
+    final.attrs = [(k, re.sub(r"page=\d+", f"page={pages}", v) if k == "href" else v) for k, v in final.attrs]
+    final.kids = [f" {pages} "]
+    picker = only((n for n in walk(nav) if n.tag == "ul" and classed(n, "page-picker-list")), "page picker")
+    links = [n for n in picker.kids if isinstance(n, Node) and n.tag == "a"]
+    picker.kids = [k for k in picker.kids if not (isinstance(k, Node) and k.tag == "a")]
+    for i, link in enumerate(links[: max(pages - 3, 0)]):
+        link.attrs = [(k, re.sub(r"page=\d+", f"page={i + 3}", v) if k == "href" else v) for k, v in link.attrs]
+        only((n for n in link.kids if isinstance(n, Node) and n.tag == "li"), "picker entry").kids = [str(i + 3)]
+        picker.kids += [" ", link]
+    # What the original said, matched whole: its numbers alone also turn up in dates.
+    return [line.split(" of ")[-1].join(["of ", ""]) for line in said] + [f'page={was}"', f">{was}<", f" {was} </a>"]
+
+
+def cut_history(path, address_id, first_id, size):
     root = parse(path)
     wrapper = only((n for n in walk(root) if n.tag == "div" and classed(n, "orderHistoryWrapper")), "history wrapper")
     table = only((n for n in wrapper.kids if isinstance(n, Node) and n.tag == "table"), "history table")
+    nav = only((n for n in wrapper.kids if isinstance(n, Node) and classed(n, "bottom-nav")), "bottom nav")
     names = Renamer(first_id)
+    sizes = resize(nav, len(history_rows(table)), size)
     private = []
 
     for tr in history_rows(table):
@@ -144,8 +169,8 @@ def cut_history(path, address_id, first_id):
                 link.attrs = [("href", "#")]
                 link.kids = ["[track package]"]
 
-    out = serialize(table, names)
-    check(out, list(names.ids) + private)
+    out = serialize(table, names) + serialize(nav, names)
+    check(out, list(names.ids) + private + sizes)
     return out, names
 
 
@@ -179,8 +204,8 @@ def check(out, private):
 def write(name, body, source):
     head = (
         f"<!-- Cut by scripts/cut-fixtures.py from a saved {source} page. Order ids are\n"
-        "renumbered, amounts are synthetic, addresses and tracking are replaced; dates\n"
-        "and statuses are as printed. -->\n"
+        "renumbered, amounts and the list's size are synthetic, addresses and tracking\n"
+        "are replaced; dates and statuses are as printed. -->\n"
     )
     with open(os.path.join(OUT, name), "w", encoding="utf-8") as f:
         f.write(head + '<div class="orderHistoryWrapper">' + body + "</div>\n")
@@ -194,8 +219,8 @@ def main():
     args = ap.parse_args()
     os.makedirs(OUT, exist_ok=True)
 
-    orders, _ = cut_history(args.orders, "shipping_address", 1000001)
-    sales, _ = cut_history(args.sales, "mailing_address", 2000001)
+    orders, _ = cut_history(args.orders, "shipping_address", 1000001, 210)
+    sales, _ = cut_history(args.sales, "mailing_address", 2000001, 340)
     write("order-history.html", orders, "order history")
     write("selling-history.html", sales, "selling history")
 

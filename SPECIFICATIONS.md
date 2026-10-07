@@ -169,19 +169,22 @@ date's. A completed sale with no Received date refuses the export.
 - One page at a time, a pause of 1.2 s before each after the first, from
   page 1 whatever page is open. A page that has not answered in 30 s fails
   the walk.
-- Page 1 fixes the list's geometry: the total from `of N results`, 25 a page,
-  and a page count that must equal both the final-page link and
-  `ceil(total / 25)`. Every later page must report the same; if it does not,
-  the list moved while it was read, and the export is refused.
-- Every page but the last holds exactly 25 rows and the last holds the rest; a
-  page with any other count, no table (a sign-in page, an error) or a duplicate
-  order id refuses the export.
+- Page 1 fixes the list's size: the total from `1 - 25 of N results`, the page
+  size from the same line (25 unless the account chose otherwise), and a page
+  count that must equal the final-page link where the page has one (a list of
+  one page may not). Every later page must print its own range of that list
+  (`26 - 50 of N`, and so on); if it does not, the list moved while it was
+  read, and the export is refused.
+- Every page holds exactly the rows its range says; a page with any other
+  count, no table (a sign-in page, an error) or an order already listed
+  refuses the export.
 - A Cloudflare challenge stops the walk, keeps nothing, and says "Card Kingdom
   is checking the browser; reload and try again".
-- Purchases may stop early once a page reaches an older year, provided that
-  page's order dates never go up. Sales always read every page: their year is
+- Purchases may stop early once a page reaches an older year, provided every
+  order read so far came newest first. Sales always read every page: their year is
   the Received date, which the order-date sort does not put in order.
-- Escape cancels; a cancelled or refused walk writes nothing.
+- Escape cancels, and a page that arrives after it is dropped; a cancelled or
+  refused walk writes nothing.
 
 ## 11. The CSV
 
@@ -228,8 +231,9 @@ pages never are. The cut rebuilds the fragment under test from an allowlist of
 attributes, drops every script, event handler and Vue attribute, replaces each
 `_token` with `TOKEN`, replaces the address and tracking cells whole, renumbers
 every order and cart line id everywhere it appears (text, links, form actions,
-labels), replaces every amount with a synthetic one of the same shape, and
-rewrites every URL to a synthetic one on the same origin. Dates and statuses
+labels), replaces every amount with a synthetic one of the same shape and the
+list's size (its results line and pager) with a synthetic one, and rewrites
+every URL to a synthetic one on the same origin. Dates and statuses
 stay as printed. Product ids stay: they are CK's public catalogue ids. The
 script checks its own output for an id, an address line or a link it should
 have removed, and writes nothing if it finds one. `tests/repo.test.js` scans every

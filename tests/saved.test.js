@@ -40,10 +40,18 @@ for (const kind of ["purchases", "sales"]) {
       expect(exported.filter((row) => CKB.yearOf(row, kind) === null)).toEqual([]);
     });
 
+    test.skipIf(!SAVED[kind])("its pager agrees with its results line", () => {
+      const place = CKB.historyPlace(savedPage(SAVED[kind]));
+      expect(place.first).toBe(1);
+      expect(place.last).toBe(25);
+      expect(place.pages).toBe(Math.ceil(place.total / 25));
+    });
+
     test.skipIf(!SAVED[kind])("left none of its order ids in a fixture", () => {
       const ids = CKB.readHistory(savedPage(SAVED[kind]), kind).map((row) => row.orderID);
       const fixtures = readdirSync(new URL("./fixtures/", import.meta.url)).map(text).join("\n");
       expect(ids.filter((id) => fixtures.includes(id))).toEqual([]);
+      expect(fixtures).not.toContain("of " + CKB.historyPlace(savedPage(SAVED[kind])).total + " results");
     });
   });
 }

@@ -82,5 +82,75 @@
     "find": "\"Mar\", \"Apr\"",
     "replace": "\"Apr\", \"Mar\"",
     "expectFailing": "reads every month"
+  },
+  {
+    "guard": "the pager must agree with the count",
+    "file": "src/history.js",
+    "find": "if (place.pages !== null && place.pages !== walked.pageCount) {",
+    "replace": "if (false) {",
+    "expectFailing": "a pager that disagrees with the count is refused"
+  },
+  {
+    "guard": "a short page is refused",
+    "file": "src/history.js",
+    "find": "if (rows.length !== last - first + 1) {",
+    "replace": "if (false) {",
+    "expectFailing": "a page that comes back short is refused"
+  },
+  {
+    "guard": "a page with no table is refused, not read as no orders",
+    "file": "src/history.js",
+    "find": "throw new Error(\"There is no history table on the page\");",
+    "replace": "return [];",
+    "expectFailing": "a page with no history on it is refused"
+  },
+  {
+    "guard": "a list that moves while it is read is refused",
+    "file": "src/history.js",
+    "find": "if (moved || (place.pages",
+    "replace": "if ((place.pages",
+    "expectFailing": "a list that grows while it is read is refused"
+  },
+  {
+    "guard": "an order listed twice is refused",
+    "file": "src/history.js",
+    "find": "if (seen[rows[i].orderID]) {",
+    "replace": "if (false) {",
+    "expectFailing": "an order listed twice is refused"
+  },
+  {
+    "guard": "purchases stop early only while the list is newest first",
+    "file": "src/history.js",
+    "find": "if (stopBelow && sorted && older(rows)) {",
+    "replace": "if (stopBelow && older(rows)) {",
+    "expectFailing": "purchases out of order do not stop early"
+  },
+  {
+    "guard": "sales never stop early",
+    "file": "src/history.js",
+    "find": "var stopBelow = kind === \"purchases\" && opts.year ? opts.year : null;",
+    "replace": "var stopBelow = opts.year ? opts.year : null;",
+    "expectFailing": "sales never stop early"
+  },
+  {
+    "guard": "a cancelled walk keeps nothing",
+    "file": "src/history.js",
+    "find": "walked.rows = [];",
+    "replace": "walked.rows = walked.rows;",
+    "expectFailing": "a cancelled walk keeps nothing"
+  },
+  {
+    "guard": "a page that arrives after cancelling is dropped",
+    "file": "src/history.js",
+    "find": "// A page that arrives after Escape is dropped, not kept.\n          if (cancelled()) {",
+    "replace": "// A page that arrives after Escape is dropped, not kept.\n          if (false) {",
+    "expectFailing": "a page that arrives after cancelling is dropped"
+  },
+  {
+    "guard": "the first page is not paced",
+    "file": "src/history.js",
+    "find": "CKB.after(n === 1 ? 0 : pace)",
+    "replace": "CKB.after(pace)",
+    "expectFailing": "it waits before each page after the first"
   }
 ]
