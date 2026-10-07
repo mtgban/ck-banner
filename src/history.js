@@ -157,6 +157,49 @@ globalThis.CKB = globalThis.CKB || {};
     return picked;
   };
 
+  // A finished file is kept (SPECIFICATIONS.md, section 12) under a key of
+  // its page and year, with the history's signature when it was built.
+  CKB.FILE_VERSION = 1;
+
+  // FILE_TTL is how long a file holding this year's orders may be handed
+  // out: older orders can change state where page 1 does not show it.
+  CKB.FILE_TTL = 86400000;
+
+  CKB.fileKey = function (kind, year) {
+    return "csv:" + kind + ":" + (year === null ? "all" : year);
+  };
+
+  // historySignature is page 1 as it stands: the list's total and every
+  // row's order id, status, status date and payment. A new order, or a
+  // recent one changing state, changes it; and since order ids belong to
+  // one account, no other account's page 1 can match it.
+  CKB.historySignature = function (doc, kind) {
+    var rows = CKB.readHistory(doc, kind);
+    return (
+      CKB.historyPlace(doc).total + "\n" +
+      rows
+        .map(function (row) {
+          return [row.orderID, row.status, row.completedOn, row.paid].join("|");
+        })
+        .join("\n")
+    );
+  };
+
+  // usableFile says whether a kept file may be handed out for the history
+  // whose page 1 has this signature: this version and the same signature,
+  // and, for every year or this one, built less than a day before now.
+  CKB.usableFile = function (entry, signature, year, now) {
+    if (!entry || entry.v !== CKB.FILE_VERSION || entry.signature !== signature ||
+        typeof entry.csv !== "string" || typeof entry.builtAt !== "number") {
+      return false;
+    }
+    var age = now - entry.builtAt;
+    if (year === null || year >= new Date(now).getFullYear()) {
+      return age >= 0 && age < CKB.FILE_TTL;
+    }
+    return true;
+  };
+
   function count(digits) {
     return Number(digits.replace(/,/g, ""));
   }
@@ -194,7 +237,8 @@ globalThis.CKB = globalThis.CKB || {};
   // as long as every order so far came newest first. Sales never stop early:
   // a sale's year is its Received date, which the list is not sorted by.
   //
-  // options: year, fetchPage, pace, cancelled() and progress(page, pages).
+  // options: year, fetchPage, pace, cancelled(), progress(page, pages), and
+  // first, page 1 already in hand, which is then not asked for again.
   CKB.walkHistory = function (kind, base, options) {
     var opts = options || {};
     var fetchPage = opts.fetchPage || CKB.fetchPage;
@@ -274,7 +318,8 @@ globalThis.CKB = globalThis.CKB || {};
         if (cancelled()) {
           return stop();
         }
-        return fetchPage(base + "?page=" + n).then(function (doc) {
+        var asking = n === 1 && opts.first ? Promise.resolve(opts.first) : fetchPage(base + "?page=" + n);
+        return asking.then(function (doc) {
           // A page that arrives after Escape is dropped, not kept.
           if (cancelled()) {
             return stop();

@@ -4,6 +4,10 @@
 // The click walks the whole list from page 1 (history.js) and saves the
 // chosen year's shipped or completed, paid orders. A walk that was refused
 // or cancelled saves nothing, and neither does one that found no orders.
+//
+// A saved file is kept (store.js). The next click reads page 1 alone, and
+// while page 1 is as it was the kept file downloads at once; the button then
+// offers Rebuild, which always reads the list again.
 
 (function (CKB) {
   "use strict";
@@ -37,7 +41,11 @@
 
   var panel = null;
   var year = null;
+  var go = null;
   var generation = 0;
+  var store = null;
+  // rebuild is set once a kept file was handed out for the chosen year.
+  var rebuild = false;
 
   function chosen() {
     return year.value === "all" ? null : Number(year.value);
@@ -49,6 +57,8 @@
 
   function idle() {
     var y = chosen();
+    rebuild = false;
+    go.textContent = "Download CSV";
     panel.word(page.kind);
     panel.clear();
     panel.hint(page.every + (y === null ? "" : " " + page.within + " " + y) + ", as a CSV with one row per order");
@@ -80,18 +90,40 @@
     );
   }
 
+  function clock(ms) {
+    var at = new Date(ms);
+    return String(at.getHours()).padStart(2, "0") + ":" + String(at.getMinutes()).padStart(2, "0");
+  }
+
+  // finish saves the walk's file and answers with what is kept of it, or
+  // with null when there was nothing to save.
   function finish(walked, y) {
     var picked = CKB.pick(walked.rows, page.kind, y);
     if (!picked.rows.length) {
       panel.word(page.kind);
       panel.fail(page.none + (y === null ? "" : " in " + y) + "; read " + pagesRead(walked) + ".");
-      return;
+      return null;
     }
     var name = "ck-" + page.kind + "-" + (y === null ? "all" : y) + ".csv";
-    CKB.download(CKB.toCSV(picked.rows), name);
+    var csv = CKB.toCSV(picked.rows);
+    CKB.download(csv, name);
     panel.word(picked.rows.length + " " + page.done);
     panel.mark("done");
     panel.recap(recap(name, picked, walked));
+    return { name: name, csv: csv, count: picked.rows.length, read: pagesRead(walked) };
+  }
+
+  // served hands out a kept file, and turns the button into Rebuild.
+  function served(file) {
+    CKB.download(file.csv, file.name);
+    panel.word(file.count + " " + page.done);
+    panel.mark("done");
+    panel.recap(
+      "Saved " + file.name + " again, as built at " + clock(file.builtAt) + " from " + file.read +
+      ": page 1 has not changed since. Rebuild reads the list again."
+    );
+    rebuild = true;
+    go.textContent = "Rebuild";
   }
 
   function run() {
@@ -100,25 +132,67 @@
       return mine !== generation;
     }
     var y = chosen();
+    var key = CKB.fileKey(page.kind, y);
+    var base = location.origin + location.pathname;
+    var force = rebuild;
+    var signature = "";
     panel.clear();
     panel.word("reading");
     panel.busy(true);
 
-    CKB.walkHistory(page.kind, location.origin + location.pathname, {
-      year: y,
-      cancelled: stale,
-      progress: function (n, pages) {
-        if (!stale()) {
-          panel.word(n + " / " + pages + " pages");
+    CKB.fetchPage(base + "?page=1")
+      .then(function (first) {
+        if (stale()) {
+          return null;
         }
-      },
-    })
+        signature = CKB.historySignature(first, page.kind);
+        return store
+          .then(function (s) {
+            return s.get(key);
+          })
+          .catch(function () {
+            return null;
+          })
+          .then(function (kept) {
+            if (stale()) {
+              return null;
+            }
+            if (!force && CKB.usableFile(kept, signature, y, Date.now())) {
+              panel.busy(false);
+              served(kept);
+              return null;
+            }
+            return CKB.walkHistory(page.kind, base, {
+              year: y,
+              first: first,
+              cancelled: stale,
+              progress: function (n, pages) {
+                if (!stale()) {
+                  panel.word(n + " / " + pages + " pages");
+                }
+              },
+            });
+          });
+      })
       .then(function (walked) {
-        if (stale() || walked.cancelled) {
+        if (!walked || stale() || walked.cancelled) {
           return;
         }
         panel.busy(false);
-        finish(walked, y);
+        rebuild = false;
+        go.textContent = "Download CSV";
+        var file = finish(walked, y);
+        // Only a whole, successful walk replaces what is kept.
+        if (file) {
+          file.v = CKB.FILE_VERSION;
+          file.signature = signature;
+          file.builtAt = Date.now();
+          store
+            .then(function (s) {
+              return s.put(key, file);
+            })
+            .catch(function () {});
+        }
       })
       .catch(function (err) {
         if (stale()) {
@@ -135,6 +209,7 @@
       return;
     }
     panel = CKB.panel();
+    store = CKB.openStore();
 
     year = document.createElement("select");
     year.className = "ck-banner-year";
@@ -152,7 +227,7 @@
     }
     year.value = String(now);
 
-    var go = document.createElement("button");
+    go = document.createElement("button");
     go.type = "button";
     go.className = "ck-banner-go";
     go.textContent = "Download CSV";

@@ -32,7 +32,7 @@ function scriptsFor(path) {
 // whose list holds total orders, served page by page out of the fixtures.
 // change[n] rewrites page n's markup, or answers with an Error or a Promise
 // to fail or hold its fetch.
-export function mountHistory({ kind = "purchases", total = 210, change = {}, body } = {}) {
+export function mountHistory({ kind = "purchases", total = 210, change = {}, body, idb = new IDBFactory() } = {}) {
   const name = kind === "sales" ? "selling-history.html" : "order-history.html";
   const path = kind === "sales" ? "/myaccount/selling_history" : "/myaccount/order_history";
   const window = new Window({
@@ -40,6 +40,7 @@ export function mountHistory({ kind = "purchases", total = 210, change = {}, bod
     settings: { disableJavaScriptFileLoading: true, disableCSSFileLoading: true, disableIframePageLoading: true },
   });
   window.document.body.innerHTML = body ?? pageHTML(name, { n: 1, total });
+  window.indexedDB = idb;
 
   const asked = [];
   window.fetch = (url) => {
@@ -81,6 +82,7 @@ export function mountHistory({ kind = "purchases", total = 210, change = {}, bod
     panel,
     asked,
     saved,
+    idb,
     // What the heading says out loud: the mark only when it is shown.
     heading: () =>
       [...at(".ck-banner-label").childNodes]
