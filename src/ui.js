@@ -105,6 +105,12 @@ globalThis.CKB = globalThis.CKB || {};
         tip();
       },
 
+      // release lets the page go without asking, for a reload the work
+      // itself calls for; the spinner and the disabled row stay until then.
+      release: function () {
+        window.removeEventListener("beforeunload", hold);
+      },
+
       working: working,
     };
     return panel;

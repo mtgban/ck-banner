@@ -184,8 +184,8 @@
   {
     "guard": "the page is held only while work runs",
     "file": "src/ui.js",
-    "find": "window.removeEventListener(\"beforeunload\", hold);",
-    "replace": "",
+    "find": "} else {\n          window.removeEventListener(\"beforeunload\", hold);",
+    "replace": "} else {",
     "expectFailing": "the page is held only while it reads"
   },
   {
@@ -446,6 +446,20 @@
     "find": "if (CKB.challenged(response)) {",
     "replace": "if (false) {",
     "expectFailing": "a Cloudflare challenge is told from an ordinary refusal"
+  },
+  {
+    "guard": "the panel stays busy through a reload",
+    "file": "src/cartpage.js",
+    "find": "      panel.release();\n      CKB.reload();",
+    "replace": "      panel.busy(false);\n      CKB.reload();",
+    "expectFailing": "one click sends one request, for the line's quantity, then reloads"
+  },
+  {
+    "guard": "a reload the update calls for does not ask",
+    "file": "src/ui.js",
+    "find": "      release: function () {\n        window.removeEventListener(\"beforeunload\", hold);",
+    "replace": "      release: function () {",
+    "expectFailing": "one click sends one request, for the line's quantity, then reloads"
   },
   {
     "guard": "a kept file is used only for the page 1 it was built from",

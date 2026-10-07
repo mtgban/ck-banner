@@ -192,7 +192,9 @@ the line is its one NM line for the product, read for `qty`, `price` and
 | no single NM line for the product, not 200, not JSON, no answer, a Cloudflare challenge | red "Not updated" with the reason | the panel says to reload; every other *Update price* stays disabled until then, since the cart may no longer be what the page shows |
 
 While a request runs, every *Update price* and *Refresh* is disabled, the
-page asks before it is left, and Escape does not stop it. Never: a delete, a
+page asks before it is left, and Escape does not stop it. An update that
+ends in a reload keeps them disabled until the page goes, and the reload
+does not ask. Never: a delete, a
 retry, a second request in flight, a request for a line whose verdict is not
 *better*, or a request built from a control that no longer matches its line.
 

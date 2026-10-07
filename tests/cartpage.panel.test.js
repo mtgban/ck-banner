@@ -314,9 +314,10 @@ describe("Update price", () => {
     expect(it.written).toEqual([
       { url: "https://www.cardkingdom.com/api/sellcart/add", method: "POST", body: '{"product_id":"206649","style":"NM","quantity":1}' },
     ]);
-    // Updating until the reload shows CK's own figures.
+    // Updating, with nothing to press, until the reload shows CK's own figures.
     expect(it.update(206649).textContent).toBe("Updating");
     expect(it.update(206649).disabled).toBe(true);
+    expect(it.button().disabled).toBe(true);
     expect(it.reloads.length).toBe(1);
     expect(it.leaving()).toBe(false);
   });
@@ -380,7 +381,9 @@ describe("Update price", () => {
       { url: "https://www.cardkingdom.com/sellcart/lineitem/5550001", method: "POST", body: "_token=TOKEN&qty=1" },
     ]);
     expect(it.update(206649).textContent).toBe("Updating");
+    expect(it.button().disabled).toBe(true);
     expect(it.reloads.length).toBe(1);
+    expect(it.leaving()).toBe(false);
   });
 
   test("a quantity that cannot be put back is said, and locks every other update", async () => {
