@@ -58,6 +58,9 @@ globalThis.CKB = globalThis.CKB || {};
       signal: CKB.deadline(),
     }).then(
       function (response) {
+        if (CKB.challenged(response)) {
+          return failed("Card Kingdom is checking the browser");
+        }
         if (!response.ok) {
           return failed("Card Kingdom answered " + response.status);
         }

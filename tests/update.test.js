@@ -1,4 +1,4 @@
-import { test, expect, describe, afterEach } from "bun:test";
+import { test, expect, describe, beforeEach, afterEach } from "bun:test";
 import { CKB, load } from "./helpers.js";
 
 const saved = globalThis.fetch;
@@ -28,12 +28,13 @@ function item(changes = {}) {
   };
 }
 
-// answer stands in for fetch, recording each request.
+// answer stands in for fetch, recording each request. Its answers carry
+// headers, as a real Response's do.
 function answer(respond) {
   const asked = [];
   globalThis.fetch = (url, options) => {
     asked.push({ url: String(url), options });
-    return respond(url, options);
+    return respond(url, options).then((r) => (r && !r.headers ? { ...r, headers: new Headers() } : r));
   };
   return asked;
 }
@@ -112,16 +113,34 @@ describe("CK's answer decides", () => {
     answer(() => Promise.reject(new TypeError("Failed to fetch")));
     expect((await CKB.updatePrice(line())).message).toBe("The request did not reach Card Kingdom");
   });
+
+  test("a Cloudflare challenge is told from an ordinary refusal", async () => {
+    const headers = new Headers({ "cf-mitigated": "challenge" });
+    answer(() => Promise.resolve({ ok: false, status: 403, headers, json: () => Promise.resolve({}) }));
+    expect((await CKB.updatePrice(line())).message).toBe("Card Kingdom is checking the browser");
+  });
 });
 
 describe("putting a quantity back", () => {
+  beforeEach(() => {
+    globalThis.location = new URL("https://www.cardkingdom.com/sellcart");
+  });
+  afterEach(() => {
+    delete globalThis.location;
+  });
+
   test("posts the line's own form: an absolute quantity and its token, to the line CK holds", async () => {
     const asked = answer(() => Promise.resolve({ ok: true, status: 200 }));
-    globalThis.location = new URL("https://www.cardkingdom.com/sellcart");
     expect(await CKB.restoreQuantity(line(), 5550001, 1)).toBe(true);
-    delete globalThis.location;
     expect(asked[0].url).toBe("https://www.cardkingdom.com/sellcart/lineitem/5550001");
     expect(asked[0].options.method).toBe("POST");
     expect(asked[0].options.body.toString()).toBe("_token=TOKEN&qty=1");
+  });
+
+  test("a refusal or no answer is reported, never thrown", async () => {
+    answer(() => Promise.resolve({ ok: false, status: 419 }));
+    expect(await CKB.restoreQuantity(line(), 5550001, 1)).toBe(false);
+    answer(() => Promise.reject(new TypeError("Failed to fetch")));
+    expect(await CKB.restoreQuantity(line(), 5550001, 1)).toBe(false);
   });
 });

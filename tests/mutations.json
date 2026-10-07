@@ -429,9 +429,23 @@
   {
     "guard": "a wrong quantity is put back",
     "file": "src/cartpage.js",
-    "find": "CKB.restoreQuantity(line, answer.lineID, line.qty).then(function () {",
-    "replace": "Promise.resolve().then(function () {",
+    "find": "CKB.restoreQuantity(line, answer.lineID, line.qty).then(function (restored) {",
+    "replace": "Promise.resolve(true).then(function (restored) {",
     "expectFailing": "another quantity is put back through the line's own form, then the page reloads"
+  },
+  {
+    "guard": "a quantity not put back locks every update",
+    "file": "src/cartpage.js",
+    "find": "        if (!restored) {",
+    "replace": "        if (false) {",
+    "expectFailing": "a quantity that cannot be put back is said, and locks every other update"
+  },
+  {
+    "guard": "a challenge on the add is named",
+    "file": "src/update.js",
+    "find": "if (CKB.challenged(response)) {",
+    "replace": "if (false) {",
+    "expectFailing": "a Cloudflare challenge is told from an ordinary refusal"
   },
   {
     "guard": "a kept file is used only for the page 1 it was built from",

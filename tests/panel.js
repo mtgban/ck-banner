@@ -153,7 +153,11 @@ export async function mountCart({ side = "sell", path, body, prices = pricelist(
   window.fetch = (url, options) => {
     if (String(url) !== "https://api.cardkingdom.com/api/v2/pricelist") {
       written.push({ url: String(url), method: options.method, body: String(options.body) });
-      return writes ? writes(String(url), options) : Promise.reject(new Error("no write expected"));
+      if (!writes) {
+        return Promise.reject(new Error("no write expected"));
+      }
+      // Answered as a real Response is: always with headers.
+      return writes(String(url), options).then((r) => (r && !r.headers ? { ...r, headers: new window.Headers() } : r));
     }
     asked.push({ url: String(url), options });
     return new Promise((resolve, reject) => {

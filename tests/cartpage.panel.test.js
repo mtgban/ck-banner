@@ -375,6 +375,25 @@ describe("Update price", () => {
     expect(it.reloads.length).toBe(1);
   });
 
+  test("a quantity that cannot be put back is said, and locks every other update", async () => {
+    const it = await mountCart({
+      prices: two(),
+      writes: (url) => Promise.resolve(url.endsWith("/api/sellcart/add") ? answer({ qty: 2 }) : { ok: false, status: 419 }),
+    });
+    it.button().click();
+    await it.settle();
+    it.update(206649).click();
+    await it.settle(900);
+    expect(it.written.length).toBe(2);
+    expect(it.mark(206649)).toMatchObject({ badge: "Not updated", tone: "bad" });
+    expect(it.mark(206649).tip).toBe(
+      "Card Kingdom set this line to 2, and putting back 1 failed. Reload the page to see what Card Kingdom holds."
+    );
+    expect(it.failed()).toBe(true);
+    expect(it.update(224590).disabled).toBe(true);
+    expect(it.reloads).toEqual([]);
+  });
+
   test("a failed update locks every other until the page is reloaded", async () => {
     const it = await mountCart({ prices: two(), writes: () => Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) }) });
     it.button().click();

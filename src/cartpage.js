@@ -199,27 +199,39 @@
       return;
     }
     if (answer.outcome === "quantity") {
-      CKB.restoreQuantity(line, answer.lineID, line.qty).then(function () {
+      CKB.restoreQuantity(line, answer.lineID, line.qty).then(function (restored) {
+        if (!restored) {
+          refused(box, "Card Kingdom set this line to " + answer.qty + ", and putting back " + line.qty + " failed");
+          return;
+        }
         panel.busy(false);
         CKB.reload();
       });
       return;
     }
+    if (answer.outcome !== "kept") {
+      refused(box, answer.message);
+      return;
+    }
 
     writing = false;
     panel.busy(false);
-    if (answer.outcome === "kept") {
-      swap(box, "Price kept", "warn", "Card Kingdom kept " + each(answer.price) + ". Remove the card and add it again to take " +
-        each(answer.buy) + ".");
-      updates(false);
-      lastSummary();
-      return;
-    }
+    swap(box, "Price kept", "warn", "Card Kingdom kept " + each(answer.price) + ". Remove the card and add it again to take " +
+      each(answer.buy) + ".");
+    updates(false);
+    lastSummary();
+  }
+
+  // refused marks the line "Not updated" and sends nothing more until the
+  // page is reloaded, since the cart may no longer be what the page shows.
+  function refused(box, message) {
+    writing = false;
+    panel.busy(false);
     locked = true;
     updates(true);
-    swap(box, "Not updated", "bad", answer.message + ". Reload the page to see what Card Kingdom holds.");
+    swap(box, "Not updated", "bad", message + ". Reload the page to see what Card Kingdom holds.");
     lastSummary();
-    panel.fail(answer.message + ". Reload the page to see what Card Kingdom holds; no other update will be sent until then.");
+    panel.fail(message + ". Reload the page to see what Card Kingdom holds; no other update will be sent until then.");
   }
 
   function signature(lines) {
