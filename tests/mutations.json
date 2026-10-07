@@ -26,5 +26,61 @@
     "find": "if (/[\",\\r\\n]/.test(text)) {",
     "replace": "if (/[\"\\r\\n]/.test(text)) {",
     "expectFailing": "a comma is quoted"
+  },
+  {
+    "guard": "only the page's finished status is exported",
+    "file": "src/history.js",
+    "find": "return row.status === KINDS[kind].done && row.paid === \"Paid\";",
+    "replace": "return row.paid === \"Paid\";",
+    "expectFailing": "only the finished status is exported"
+  },
+  {
+    "guard": "an unpaid row is not exported",
+    "file": "src/history.js",
+    "find": "return row.status === KINDS[kind].done && row.paid === \"Paid\";",
+    "replace": "return row.status === KINDS[kind].done;",
+    "expectFailing": "an unpaid row is not exported"
+  },
+  {
+    "guard": "purchases export SHIPPED, sales COMPLETED",
+    "file": "src/history.js",
+    "find": "done: \"SHIPPED\"",
+    "replace": "done: \"COMPLETED\"",
+    "expectFailing": "every shipped and paid purchase is exported"
+  },
+  {
+    "guard": "a sale is filed under its Received date",
+    "file": "src/history.js",
+    "find": "done: \"COMPLETED\", yearFrom: \"completed\"",
+    "replace": "done: \"COMPLETED\", yearFrom: \"ordered\"",
+    "expectFailing": "a sale is filed under the year it was received"
+  },
+  {
+    "guard": "columns are found by their header",
+    "file": "src/history.js",
+    "find": "var status = cells[at[\"Status\"]];",
+    "replace": "var status = cells[4];",
+    "expectFailing": "columns are found by their header, wherever they sit"
+  },
+  {
+    "guard": "the status cell is not found by its id",
+    "file": "src/history.js",
+    "find": "var status = cells[at[\"Status\"]];",
+    "replace": "var status = tr.querySelector('td[id=\"order_status\"]');",
+    "expectFailing": "reads the page's misspelled status cell"
+  },
+  {
+    "guard": "an order date that cannot be read refuses the page",
+    "file": "src/history.js",
+    "find": "if (!row.ordered) {",
+    "replace": "if (false) {",
+    "expectFailing": "an order date that cannot be read refuses the page"
+  },
+  {
+    "guard": "every month has its own number",
+    "file": "src/money.js",
+    "find": "\"Mar\", \"Apr\"",
+    "replace": "\"Apr\", \"Mar\"",
+    "expectFailing": "reads every month"
   }
 ]

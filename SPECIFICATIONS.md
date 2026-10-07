@@ -228,8 +228,11 @@ pages never are. The cut rebuilds the fragment under test from an allowlist of
 attributes, drops every script, event handler and Vue attribute, replaces each
 `_token` with `TOKEN`, replaces the address and tracking cells whole, renumbers
 every order and cart line id everywhere it appears (text, links, form actions,
-labels), and rewrites every URL to a synthetic one on the same origin. Product
-ids stay: they are CK's public catalogue ids. `tests/repo.test.js` scans every
+labels), replaces every amount with a synthetic one of the same shape, and
+rewrites every URL to a synthetic one on the same origin. Dates and statuses
+stay as printed. Product ids stay: they are CK's public catalogue ids. The
+script checks its own output for an id, an address line or a link it should
+have removed, and writes nothing if it finds one. `tests/repo.test.js` scans every
 fixture for what a cut must never keep.
 
 ## 15. Build order

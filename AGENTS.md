@@ -24,6 +24,18 @@ allowlist, never by editing a saved page down: see `SPECIFICATIONS.md`,
 "Fixtures". `tests/repo.test.js` scans every fixture for what a cut must never
 keep.
 
+`tests/saved.test.js` runs the parsers on the saved pages themselves, and
+checks that none of their order ids reached a fixture:
+
+```
+CK_SAVED_ORDERS=<saved order history.html> \
+CK_SAVED_SALES=<saved selling history.html> bun test tests/
+```
+
+Without the variables it skips. A test that needs a row the saved pages do
+not have (another status, a year boundary) edits a copy of a fixture row in
+the test itself and says so there; the fixture files stay as cut.
+
 ## Layout
 
 ```
@@ -32,7 +44,9 @@ icons/           the BAN stroopwafel, shared with cm-banner
 src/net.js       one page at a time: pace, deadline, Cloudflare challenge
 src/money.js     "$1,234.56" to cents and back; CK's dates to their parts
 src/csv.js       the history CSV: its five columns and Go's quoting
+src/history.js   a history page's rows, which are exported, and their year
 scripts/mutate.mjs   breaks each guard in tests/mutations.json in turn
+scripts/cut-fixtures.py  cuts tests/fixtures/ from saved pages, locally only
 tests/           bun + happy-dom, no browser
 ```
 

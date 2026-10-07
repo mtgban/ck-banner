@@ -95,6 +95,7 @@ describe("fixtures", () => {
       if (tokens.some((value) => value !== "TOKEN")) leaks.push(name + ": a real _token");
       if (/[\w.+-]+@[\w-]+\.[\w.]+/.test(text)) leaks.push(name + ": an email address");
       if (/\d{15,}/.test(text)) leaks.push(name + ": a 15-plus digit run");
+      if (/[A-Za-z0-9]{30,}/.test(text)) leaks.push(name + ": a 30-plus character token");
       if (/laravel_session|trkcnfrm|ups\.com|usps\.com|fedex\.com/i.test(text)) leaks.push(name + ": session or tracking");
     }
     expect(leaks).toEqual([]);
