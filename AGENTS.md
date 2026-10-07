@@ -22,7 +22,9 @@ account's name, email, mailing and shipping addresses, and tracking numbers.
 Work on them outside the repository and delete them after. Fixtures are cut by
 allowlist, never by editing a saved page down: see `SPECIFICATIONS.md`,
 "Fixtures". `tests/repo.test.js` scans every fixture for what a cut must never
-keep.
+keep. A cart fixture holds none of the account's items: the cutter keeps CK's
+markup and refills every line with an item drawn from a price list, so it
+needs one (`--prices`, the `pricelist.json` CK publishes).
 
 `tests/panel.js` runs a content script the way a tab does: the scripts the
 manifest names, in its order, in one happy-dom window at a Card Kingdom
@@ -33,7 +35,9 @@ checks that none of their order ids reached a fixture:
 
 ```
 CK_SAVED_ORDERS=<saved order history.html> \
-CK_SAVED_SALES=<saved selling history.html> bun test tests/
+CK_SAVED_SALES=<saved selling history.html> \
+CK_SAVED_SELLCART=<saved sell cart.html> \
+CK_SAVED_BUYCART=<saved buy cart.html> bun test tests/
 ```
 
 Without the variables it skips. A test that needs a row the saved pages do
@@ -49,6 +53,7 @@ src/net.js       one page at a time: pace, deadline, Cloudflare challenge
 src/money.js     "$1,234.56" to cents and back; CK's dates to their parts
 src/csv.js       the history CSV: its five columns and Go's quoting
 src/history.js   history pages: their rows, which are exported, the walk
+src/cart.js      both carts' lines, each read whole or marked unreadable
 src/ui.js        the panel both pages share, and the file download
 src/historypage.js  content script: year picker and Download CSV
 src/panel.css, src/history.css
@@ -98,6 +103,11 @@ keyboard: stop, keep nothing, say so, and never try to answer it in code.
 **The cart is mounted by Vue.** A re-render can wipe anything inserted into
 it, so annotation is idempotent, re-run from a MutationObserver, and every
 control checks it still belongs to its line before it acts.
+
+**Never hand `expect` an object holding a DOM node.** A failing `toEqual` or
+`toMatchObject` on a cart line (which keeps its wrapper) makes bun print the
+whole happy-dom window; the run climbs past 10 GB and never ends. Compare the
+plain fields.
 
 **Columns are found by their header.** Ids repeat on every history row, and on
 the selling history the status cell's attribute is misspelled `id-=`.

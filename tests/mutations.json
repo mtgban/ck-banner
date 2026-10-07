@@ -194,5 +194,54 @@
     "find": "controls[i].disabled = on;",
     "replace": "",
     "expectFailing": "reads the list and saves the year's orders"
+  },
+  {
+    "guard": "a wrapper is a line only with its own quantity form",
+    "file": "src/cart.js",
+    "find": "var found = lineForm(wrappers[i], base, SIDES[side]);",
+    "replace": "var found = lineForm(wrappers[i], base, SIDES[side]) || (wrappers[i].querySelector(\".save-for-later-button a[data-ckproductid]\") && { form: wrappers[i], id: 0 });",
+    "expectFailing": "the Saved For Later list and both Move All buttons are left alone"
+  },
+  {
+    "guard": "the product id is the Save for Later link's",
+    "file": "src/cart.js",
+    "find": "var id = link ? link.getAttribute(\"data-ckproductid\") : \"\";",
+    "replace": "var id = String(found.id);",
+    "expectFailing": "reads every line, in order"
+  },
+  {
+    "guard": "a total that is not quantity times price is unreadable",
+    "file": "src/cart.js",
+    "find": "} else if (line.total !== line.qty * line.each) {",
+    "replace": "} else if (false) {",
+    "expectFailing": "a total that is not quantity times price is unreadable"
+  },
+  {
+    "guard": "a quantity form on another origin is not a line",
+    "file": "src/cart.js",
+    "find": "if (m && url.origin === base.origin) {",
+    "replace": "if (m) {",
+    "expectFailing": "a form posting to another site is not a line"
+  },
+  {
+    "guard": "the quantity is the hidden field's",
+    "file": "src/cart.js",
+    "find": "var qty = found.form.querySelector('input[name=\"qty\"]');",
+    "replace": "var qty = wrapper.querySelector(\".dropdown-toggle\") ? { value: wrapper.querySelector(\".dropdown-toggle\").textContent.trim() } : found.form.querySelector('input[name=\"qty\"]');",
+    "expectFailing": "the quantity is the hidden field's, not the dropdown's"
+  },
+  {
+    "guard": "a buy line names its condition",
+    "file": "src/cart.js",
+    "find": "} else if (line.condition === null) {",
+    "replace": "} else if (false) {",
+    "expectFailing": "a line with no condition is unreadable"
+  },
+  {
+    "guard": "a buy line's total is its own span's",
+    "file": "src/cart.js",
+    "find": "(side === \"buy\" ? text(price.querySelector(\".cart-item-price\")) : firstText(price))",
+    "replace": "firstText(price)",
+    "expectFailing": "reads every line, in order, with its condition"
   }
 ]
