@@ -170,8 +170,8 @@
   {
     "guard": "Escape saves nothing",
     "file": "src/historypage.js",
-    "find": "if (stale() || walked.cancelled) {",
-    "replace": "if (false) {",
+    "find": "if (!walked || stale() || walked.cancelled) {",
+    "replace": "if (!walked) {",
     "expectFailing": "Escape stops the walk and saves nothing"
   },
   {
@@ -432,5 +432,47 @@
     "find": "CKB.restoreQuantity(line, answer.lineID, line.qty).then(function () {",
     "replace": "Promise.resolve().then(function () {",
     "expectFailing": "another quantity is put back through the line's own form, then the page reloads"
+  },
+  {
+    "guard": "a kept file is used only for the page 1 it was built from",
+    "file": "src/history.js",
+    "find": "if (!entry || entry.v !== CKB.FILE_VERSION || entry.signature !== signature ||",
+    "replace": "if (!entry || entry.v !== CKB.FILE_VERSION ||",
+    "expectFailing": "a changed page 1 reads the list again"
+  },
+  {
+    "guard": "a kept file of another version is not used",
+    "file": "src/history.js",
+    "find": "if (!entry || entry.v !== CKB.FILE_VERSION || entry.signature !== signature ||",
+    "replace": "if (!entry || entry.signature !== signature ||",
+    "expectFailing": "a kept file of another version is not used"
+  },
+  {
+    "guard": "this year's file is used for a day only",
+    "file": "src/history.js",
+    "find": "return age >= 0 && age < CKB.FILE_TTL;",
+    "replace": "return true;",
+    "expectFailing": "a file of this year or every year is used for a day, no longer"
+  },
+  {
+    "guard": "Rebuild always reads the list",
+    "file": "src/historypage.js",
+    "find": "if (!force && CKB.usableFile(kept, signature, y, Date.now())) {",
+    "replace": "if (CKB.usableFile(kept, signature, y, Date.now())) {",
+    "expectFailing": "Rebuild reads the list again"
+  },
+  {
+    "guard": "a walk reuses the page 1 it was handed",
+    "file": "src/historypage.js",
+    "find": "              first: first,\n",
+    "replace": "",
+    "expectFailing": "a second download reads page 1 alone and hands out the kept file"
+  },
+  {
+    "guard": "only a saved file is kept",
+    "file": "src/historypage.js",
+    "find": "        if (file) {\n          file.v = CKB.FILE_VERSION;",
+    "replace": "        file = file || { name: \"none\", csv: \"\", count: 0, read: \"\" };\n        if (file) {\n          file.v = CKB.FILE_VERSION;",
+    "expectFailing": "a year with nothing to save keeps nothing"
   }
 ]

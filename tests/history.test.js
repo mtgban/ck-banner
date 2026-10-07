@@ -219,3 +219,41 @@ describe("picking a year's rows", () => {
     );
   });
 });
+
+describe("the kept file", () => {
+  const NOW = Date.UTC(2026, 9, 7, 12);
+  const signature = (doc = purchases()) => CKB.historySignature(doc, "purchases");
+  const file = (changes = {}) => ({ v: CKB.FILE_VERSION, signature: signature(), csv: "x\n", builtAt: NOW - 1000, ...changes });
+
+  test("page 1's signature moves with a new order or a changed one", () => {
+    expect(signature()).toBe(signature());
+    expect(signature(set(purchases(), 0, "Status", " SHIPPED <br><span>Shipped Feb 28, 2026 11:00 PM</span>"))).not.toBe(signature());
+    expect(signature(set(purchases(), 3, "Payment Method", ' STORECREDIT<br><span>Unpaid</span>'))).not.toBe(signature());
+    const grown = purchases();
+    grown.querySelector(".resultsCount").textContent = "1 - 25 of 211 results";
+    expect(signature(grown)).not.toBe(signature());
+  });
+
+  test("a file is used only for the page 1 it was built from", () => {
+    expect(CKB.usableFile(file(), signature(), 2025, NOW)).toBe(true);
+    expect(CKB.usableFile(file({ signature: "else" }), signature(), 2025, NOW)).toBe(false);
+  });
+
+  test("a kept file of another version is not used", () => {
+    expect(CKB.usableFile(file({ v: CKB.FILE_VERSION + 1 }), signature(), 2025, NOW)).toBe(false);
+    expect(CKB.usableFile(file({ csv: undefined }), signature(), 2025, NOW)).toBe(false);
+    expect(CKB.usableFile(null, signature(), 2025, NOW)).toBe(false);
+  });
+
+  test("a file of this year or every year is used for a day, no longer", () => {
+    for (const year of [2026, null]) {
+      expect(CKB.usableFile(file({ builtAt: NOW - CKB.FILE_TTL + 1 }), signature(), year, NOW)).toBe(true);
+      expect(CKB.usableFile(file({ builtAt: NOW - CKB.FILE_TTL }), signature(), year, NOW)).toBe(false);
+      expect(CKB.usableFile(file({ builtAt: NOW + 1 }), signature(), year, NOW)).toBe(false);
+    }
+  });
+
+  test("a past year's file is used for as long as page 1 holds", () => {
+    expect(CKB.usableFile(file({ builtAt: NOW - 30 * CKB.FILE_TTL }), signature(), 2025, NOW)).toBe(true);
+  });
+});

@@ -268,14 +268,23 @@ nothing from a tracking link.
 
 ## 12. The CSV cache
 
-A finished file is kept in IndexedDB, keyed by account (a hash of what the
-signed-in page shows, never stored in the clear), page, year and CSV version,
-together with the history's signature when it was built: the total and every
-row of page 1 (order id, status, status date, payment). On *Download CSV*, an
-unchanged signature downloads the kept file at once; a changed one walks again
-and replaces it. A failed walk never replaces a good file. *Rebuild* always
-walks, and the current year's file expires after a day, since a change deeper
-than page 1 does not move the signature.
+A saved file is kept in IndexedDB beside the price list (section 5), one per
+page and year choice (`csv:purchases:2026`, `csv:sales:all`), with a version
+and the history's signature when it was built: the total and every row of
+page 1 (order id, status, status date, payment). A new order, or a recent one
+changing state, changes the signature. It is not keyed by account: order ids
+belong to one account, so no other account's page 1 can match it, and nothing
+that names the account is read or kept.
+
+*Download CSV* reads page 1 alone first. While its signature is the kept
+file's, the kept file downloads at once, the tooltip says when it was built
+and from how many pages, and the button becomes *Rebuild*, which always reads
+the list again. Otherwise the walk starts from that same page 1 and the file
+it saves replaces the kept one; a refused, cancelled or empty walk keeps
+nothing and leaves the kept file as it was. A change further down the list
+does not move the signature, so a file holding this year's orders, or every
+year's, is used for a day and then built again; a past year's file is used
+for as long as page 1 holds.
 
 ## 13. The panel
 
@@ -290,8 +299,10 @@ On the history pages the row is a year (All years, then this year back to
 walk runs the heading counts pages (`3 / 9 pages`). Done, it says how many
 orders the file holds (`34 shipped`, `12 completed`) beside a tick, and the
 tooltip names the file, the pages read, and what was left out by status,
-unpaid, or year. Nothing to save is a red cross and no file. At these
-addresses a page without the history table (a sign-in page) gets no panel.
+unpaid, or year. Nothing to save is a red cross and no file. When the file
+comes from the one kept (section 12), the button turns into *Rebuild* until
+the year changes. At these addresses a page without the history table (a
+sign-in page) gets no panel.
 
 On the carts the row is one button, *Check prices*, then *Refresh* once the
 cart is marked; the list is read only on that click. While it reads the

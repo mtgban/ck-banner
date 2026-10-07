@@ -26,6 +26,7 @@
         "src/money.js",
         "src/csv.js",
         "src/ui.js",
+        "src/store.js",
         "src/history.js",
         "src/historypage.js"
       ],
