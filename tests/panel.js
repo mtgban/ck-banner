@@ -7,8 +7,9 @@
 // it could fetch: the fixtures carry no script, stylesheet or image.
 
 import { Window } from "happy-dom";
+import { IDBFactory } from "fake-indexeddb";
 import { readFileSync } from "fs";
-import { pageHTML } from "./helpers.js";
+import { CKB, pageHTML, text } from "./helpers.js";
 
 const SITE = "https://www.cardkingdom.com";
 const manifest = JSON.parse(readFileSync(new URL("../manifest.json", import.meta.url), "utf8"));
@@ -111,5 +112,106 @@ export function mountHistory({ kind = "purchases", total = 210, change = {}, bod
     escape: () => window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape" })),
     file: async (i = 0) => ({ name: saved[i].name, text: await saved[i].blob.text() }),
     settle: (ms = 30) => new Promise((done) => setTimeout(done, ms)),
+  };
+}
+
+// pricelist is the fixture list's body with some rows edited or dropped, for
+// a test to say which; the fixture's own rows match the carts' prices.
+export function pricelist(edits = {}, drop = []) {
+  const body = JSON.parse(text("pricelist.json"));
+  body.data = body.data
+    .filter((r) => !drop.includes(r.id))
+    .map((r) => {
+      const e = edits[r.id];
+      return e ? { ...r, ...e, condition_values: { ...r.condition_values, ...(e.condition_values || {}) } } : r;
+    });
+  return body;
+}
+
+// mountCart opens the sell or buy cart from its fixture. The price list is
+// served from prices, or answered by respond(resolve, reject) when given;
+// either way the request honours its abort signal. kept, when given, is a
+// list already in the page's IndexedDB when the page loads.
+export async function mountCart({ side = "sell", path, body, prices = pricelist(), respond, kept, idb = new IDBFactory() } = {}) {
+  if (kept) {
+    await CKB.keepList(await CKB.openStore(idb), kept);
+  }
+  const at = path ?? (side === "sell" ? "/sellcart" : "/cart");
+  const window = new Window({
+    url: SITE + at,
+    settings: { disableJavaScriptFileLoading: true, disableCSSFileLoading: true, disableIframePageLoading: true },
+  });
+  window.document.body.innerHTML = body ?? text(side === "sell" ? "sell-cart.html" : "buy-cart.html");
+  window.indexedDB = idb;
+
+  const asked = [];
+  window.fetch = (url, options) => {
+    asked.push({ url: String(url), options });
+    return new Promise((resolve, reject) => {
+      options.signal.addEventListener("abort", () => reject(new Error("aborted")));
+      if (respond) {
+        respond(resolve, reject);
+      } else {
+        resolve({ ok: true, status: 200, json: () => Promise.resolve(prices) });
+      }
+    });
+  };
+
+  for (const script of scriptsFor(at.replace(/\?.*$/, ""))) {
+    window.eval(source(script));
+  }
+  const doc = window.document;
+  const panel = doc.getElementById("ck-banner");
+  const at$ = (selector) => panel && panel.querySelector(selector);
+  const settle = (ms = 40) => new Promise((done) => setTimeout(done, ms));
+  await settle();
+
+  const marks = () =>
+    [...doc.querySelectorAll(".ck-banner-line")].map((m) => ({
+      product: Number(m.getAttribute("data-product")),
+      verdict: m.getAttribute("data-verdict"),
+      badge: m.querySelector(".ck-banner-badge").textContent,
+      tone: m.querySelector(".ck-banner-badge").className.replace("ck-banner-badge ck-banner-", ""),
+      tip: m.querySelector(".ck-banner-linetip").textContent,
+      inLink: !!m.closest("a"),
+      first: m.parentElement.firstElementChild === m && m.parentElement.classList.contains("save-for-later-button"),
+    }));
+
+  return {
+    window,
+    panel,
+    asked,
+    idb,
+    marks,
+    mark: (product) => marks().find((m) => m.product === product),
+    heading: () =>
+      [...at$(".ck-banner-label").childNodes]
+        .filter((node) => !node.hidden)
+        .map((node) => node.textContent)
+        .join(""),
+    word: () => at$(".ck-banner-word").textContent,
+    tip: () => at$(".ck-banner-tip").textContent,
+    button: () => at$(".ck-banner-go"),
+    busy: () => panel.classList.contains("ck-banner-busy"),
+    failed: () => !at$(".ck-banner-mark").hidden && at$(".ck-banner-mark").classList.contains("ck-banner-failed"),
+    titled: () => doc.querySelectorAll("#ck-banner [title], .ck-banner-line [title]").length,
+    below: () => {
+      const children = [...panel.children];
+      return children.slice(children.indexOf(at$(".ck-banner-actions")) + 1).length;
+    },
+    // redraw is the page re-rendering a line's Save for Later box, as Vue
+    // does, which takes any mark in it along.
+    redraw: (product) => {
+      const host = doc.querySelector(`.save-for-later-button a[data-ckproductid="${product}"]`).parentElement;
+      host.innerHTML = host.querySelector("a").outerHTML;
+    },
+    escape: () => doc.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape" })),
+    leaving: () => {
+      const event = new window.Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    },
+    kept: async () => CKB.keptList(await CKB.openStore(idb), Date.now()),
+    settle,
   };
 }

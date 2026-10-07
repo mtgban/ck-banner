@@ -34,6 +34,26 @@
         "src/history.css"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.cardkingdom.com/sellcart*",
+        "https://www.cardkingdom.com/cart*"
+      ],
+      "js": [
+        "src/money.js",
+        "src/ui.js",
+        "src/cart.js",
+        "src/prices.js",
+        "src/store.js",
+        "src/compare.js",
+        "src/cartpage.js"
+      ],
+      "css": [
+        "src/panel.css",
+        "src/cart.css"
+      ],
+      "run_at": "document_idle"
     }
   ]
 }

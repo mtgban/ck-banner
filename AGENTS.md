@@ -56,6 +56,9 @@ src/history.js   history pages: their rows, which are exported, the walk
 src/cart.js      both carts' lines, each read whole or marked unreadable
 src/prices.js    the price list: fetch, reduce to arrays by id, look up
 src/store.js     the list kept an hour, in IndexedDB or else in memory
+src/compare.js   a cart line against the list: the spec's two verdict tables
+src/cartpage.js  content script: Check prices and the per-line marks
+src/cart.css     the marks, four classes deep to outrank CK's own reset
 src/ui.js        the panel both pages share, and the file download
 src/historypage.js  content script: year picker and Download CSV
 src/panel.css, src/history.css
