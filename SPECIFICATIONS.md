@@ -127,7 +127,7 @@ First match wins:
 | id not in the list | not listed | grey `?` |
 | identity does not match the list row | mismatch | grey `?` |
 | `qty_buying` is 0 | wants 0 | amber "Wants 0" |
-| list pays more | better | green "List pays more" |
+| list pays more | better | *Update price* (section 7) |
 | list pays less | worse | amber "List is lower" |
 | equal | same | grey tick |
 
@@ -160,33 +160,38 @@ marks.
 
 ## 7. Update price
 
-One request per click, for one *better* line, while the list is fresh:
-`POST https://www.cardkingdom.com/api/sellcart/add` with JSON
-`{"product_id": ..., "style": "NM", "quantity": q}`, q being the line's
-current quantity. go-mtgban's CK cart client sends the same request. For a
-product already in the cart, whether it sets the quantity or adds to it, and
-whether it reprices the line, is not known; the response shows both, and the
-table below covers each outcome. CK's own cart page changes a quantity through
-the line's form instead (`POST /sellcart/lineitem/<id>` with an absolute
-`qty`), which is how a wrong quantity is put back.
+A *better* line on the sell cart carries *Update price* in place of a badge.
+One click sends one request, for that line only:
+`POST https://www.cardkingdom.com/api/sellcart/add` with the session cookie
+and JSON `{"product_id": "<id>", "style": "NM", "quantity": q}`, the id a
+string and q the line's current quantity: the request go-mtgban's CK cart
+client sends. It carries no token. For a product already in the cart, whether
+the request sets the quantity or adds to it, and whether it reprices the line,
+is not known; CK's answer shows both, and the table below covers each outcome.
 
-CK's response, not the cached list, says what happened. It is the whole cart:
-per line `product_id`, `style`, `qty`, `price`, `original_price` and
+Before sending, the click checks that the list is still fresh and that the
+line is still the line the button was made for (its line id and product id)
+and still *better*. If not, nothing is sent and the line says "Check again".
+
+CK's answer, not the cached list, says what happened. It is the whole cart;
+the line is its one NM line for the product, read for `qty`, `price` and
 `product.price_buy`.
 
-| Response for the line | Shown | Then |
-|-----------------------|-------|------|
-| `qty` is q and `price` equals `product.price_buy` | tick, "Card Kingdom now pays $X each" | reload the page |
-| `qty` is q, `price` unchanged | amber `!`, "Card Kingdom kept $Y. Remove the card and add it again to take $X." | nothing was changed |
-| `qty` is not q | red cross, the quantity CK set | the line's own quantity form puts it back to q, then reload |
-| no line, not 200, not JSON | red cross, the reason | reload to show what CK holds |
+| Answer for the line | Shown | Then |
+|---------------------|-------|------|
+| `qty` is q and `price` equals `product.price_buy` | green "Updated": "Card Kingdom now pays $X each" (and "not the $Y its list showed" when they differ) | the page reloads to show CK's own figures |
+| `qty` is q, `price` is not `product.price_buy` | amber "Price kept": "Card Kingdom kept $Y each. Remove the card and add it again to take $X each." | nothing more is sent |
+| `qty` is not q | red "Quantity changed" | q is put back through the line's own quantity form (`POST /sellcart/lineitem/<id>`, an absolute `qty` and the form's `_token`, as the cart page does), to the line id CK's answer names; then the page reloads |
+| no single NM line for the product, not 200, not JSON, no answer | red "Not updated" with the reason | the panel says to reload; every other *Update price* stays disabled until then, since the cart may no longer be what the page shows |
 
-Never: a delete, a retry loop, more than one request in flight (every *Update
-price* is disabled while one runs), a request for a line whose verdict is not
+While a request runs, every *Update price* and *Refresh* is disabled, the
+page asks before it is left, and Escape does not stop it. Never: a delete, a
+retry, a second request in flight, a request for a line whose verdict is not
 *better*, or a request built from a control that no longer matches its line.
 
-The buy cart has no such button: the request that would re-add a purchase line
-is not known, so a reduction is marked, not acted on.
+The buy cart has no such button; it marks a reduction and leaves the cart to
+its owner. go-mtgban's client has the buy side's twin of the request,
+`POST /api/cart/add` with the line's condition as `style`.
 
 ## 8. The history pages
 
@@ -350,5 +355,4 @@ cheap card while the account's owner watches.
 - What the history pages' 25 / 50 / 100 page-size choice does; the walk uses
   25 until that is known.
 - Sealed lines in either cart.
-- The request that re-adds a purchase line, and whether CK reprices a buy
-  cart line on its own.
+- Whether CK reprices a buy cart line on its own.

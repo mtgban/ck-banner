@@ -2,8 +2,9 @@
 // (/cart) against the price list, beside the line's Save for Later.
 //
 // The list is read only on a click and kept for an hour (store.js); a cart
-// opened while a kept list is fresh is marked at once, with no request.
-// Nothing here changes the cart.
+// opened while a kept list is fresh is marked at once, with no request. The
+// one thing that changes a cart is Update price on a better sell line
+// (update.js), one line per click, CK's answer deciding what happened.
 
 (function (CKB) {
   "use strict";
@@ -14,8 +15,8 @@
     return;
   }
 
+  // A better line has no badge: it gets Update price (update below).
   var BADGES = {
-    better: ["List pays more", "good"],
     dropped: ["Price dropped", "good"],
     worse: ["List is lower", "warn"],
     raised: ["List is higher", "warn"],
@@ -40,6 +41,16 @@
   var reading = null;
   var shown = "";
   var store = CKB.openStore();
+  // writing is an Update price in flight; locked is a cart whose state is no
+  // longer known after a failed one, so no other update may be sent before
+  // the page is reloaded.
+  var writing = false;
+  var locked = false;
+  var lastSummary = null;
+
+  CKB.reload = function () {
+    location.reload();
+  };
 
   function each(cents) {
     return CKB.dollars(cents) + " each";
@@ -56,7 +67,8 @@
     switch (result.verdict) {
       case "better":
         return "Card Kingdom's list now pays " + each(p) + "; the cart has " + CKB.dollars(c) + " (" +
-          change(p - c) + " each, " + change((p - c) * line.qty) + " on " + line.qty + ")." + built;
+          change(p - c) + " each, " + change((p - c) * line.qty) + " on " + line.qty + ")." + built +
+          (side === "sell" ? " Update price asks Card Kingdom to reprice this line." : "");
       case "worse":
         return "Card Kingdom's list now pays " + each(p) + ", below the cart's " + CKB.dollars(c) + " (" +
           change(p - c) + " each)." + built;
@@ -97,10 +109,20 @@
     box.setAttribute("data-product", String(line.productID));
     box.setAttribute("data-verdict", result.verdict);
 
-    var badge = document.createElement("span");
-    badge.className = "ck-banner-badge ck-banner-" + BADGES[result.verdict][1];
-    badge.tabIndex = 0;
-    badge.textContent = BADGES[result.verdict][0];
+    var badge;
+    if (side === "sell" && result.verdict === "better") {
+      badge = document.createElement("button");
+      badge.type = "button";
+      // CK's own btn class, so the box's `.btn` rule draws it like Save for Later.
+      badge.className = "btn ck-banner-update";
+      badge.textContent = "Update price";
+      badge.disabled = writing || locked;
+      badge.addEventListener("click", function () {
+        update(line.lineID, line.productID);
+      });
+    } else {
+      badge = badgeOf(BADGES[result.verdict][0], BADGES[result.verdict][1]);
+    }
     var tip = document.createElement("span");
     tip.className = "ck-banner-linetip";
     tip.id = "ck-banner-line-" + line.lineID;
@@ -111,6 +133,101 @@
     box.appendChild(badge);
     box.appendChild(tip);
     line.host.insertBefore(box, line.host.firstChild);
+  }
+
+  function badgeOf(text, tone) {
+    var badge = document.createElement("span");
+    badge.className = "ck-banner-badge ck-banner-" + tone;
+    badge.tabIndex = 0;
+    badge.textContent = text;
+    return badge;
+  }
+
+  // swap replaces a line's control with a badge, and says why on its tooltip.
+  function swap(box, text, tone, tip) {
+    var control = box.querySelector(".ck-banner-badge, .ck-banner-update");
+    var badge = badgeOf(text, tone);
+    badge.setAttribute("aria-describedby", control.getAttribute("aria-describedby"));
+    control.replaceWith(badge);
+    box.querySelector(".ck-banner-linetip").textContent = tip;
+  }
+
+  function updates(disabled) {
+    var all = document.querySelectorAll(".ck-banner-update");
+    for (var i = 0; i < all.length; i++) {
+      all[i].disabled = disabled || locked;
+    }
+  }
+
+  // update sends the one request for the line its control was made for,
+  // once the line is still that line, still better, and the list still
+  // fresh; otherwise it asks for a new check and sends nothing.
+  function update(lineID, productID) {
+    if (writing || locked || reading) {
+      return;
+    }
+    var line = CKB.readCart(document, location.href, side).filter(function (l) {
+      return l.lineID === lineID && l.productID === productID;
+    })[0];
+    var box = document.querySelector('.ck-banner-line[data-line="' + lineID + '"]');
+    if (!CKB.fresh(list, Date.now())) {
+      swap(box, "Check again", "warn", "The price list is over an hour old; check prices again before updating.");
+      return;
+    }
+    if (!line || CKB.compare(line, list, side).verdict !== "better") {
+      swap(box, "Check again", "warn", "This line changed since it was marked; check prices again.");
+      return;
+    }
+
+    var listed = CKB.compare(line, list, side).price;
+    writing = true;
+    updates(true);
+    box.querySelector(".ck-banner-update").textContent = "Updating";
+    panel.clear();
+    panel.word("updating");
+    panel.busy(true);
+    CKB.updatePrice(line).then(function (answer) {
+      answered(line, box, listed, answer);
+    });
+  }
+
+  function answered(line, box, listed, answer) {
+    if (answer.outcome === "repriced") {
+      var note = answer.price !== listed ? ", not the " + CKB.dollars(listed) + " its list showed" : "";
+      swap(box, "Updated", "good", "Card Kingdom now pays " + each(answer.price) + note + ".");
+      panel.word("updated");
+      panel.mark("done");
+      // Reloaded so the cart shows CK's own figures; nothing else is sent.
+      setTimeout(function () {
+        panel.busy(false);
+        CKB.reload();
+      }, 800);
+      return;
+    }
+    if (answer.outcome === "quantity") {
+      swap(box, "Quantity changed", "bad", "Card Kingdom set the quantity to " + answer.qty + "; putting it back to " + line.qty + ".");
+      panel.word("restoring");
+      CKB.restoreQuantity(line, answer.lineID, line.qty).then(function () {
+        panel.busy(false);
+        CKB.reload();
+      });
+      return;
+    }
+
+    writing = false;
+    panel.busy(false);
+    if (answer.outcome === "kept") {
+      swap(box, "Price kept", "warn", "Card Kingdom kept " + each(answer.price) + ". Remove the card and add it again to take " +
+        each(answer.buy) + ".");
+      updates(false);
+      lastSummary();
+      return;
+    }
+    locked = true;
+    updates(true);
+    swap(box, "Not updated", "bad", answer.message + ". Reload the page to see what Card Kingdom holds.");
+    lastSummary();
+    panel.fail(answer.message + ". Reload the page to see what Card Kingdom holds; no other update will be sent until then.");
   }
 
   function signature(lines) {
@@ -173,7 +290,10 @@
       }
     });
     shown = signature(lines);
-    summary(lines, counts, gain, lasting);
+    lastSummary = function () {
+      summary(lines, counts, gain, lasting);
+    };
+    lastSummary();
     button.textContent = "Refresh";
   }
 
@@ -190,6 +310,9 @@
   }
 
   function check() {
+    if (writing) {
+      return;
+    }
     var controller = new AbortController();
     reading = controller;
     panel.clear();
@@ -248,7 +371,7 @@
   function refresh() {
     var lines = CKB.readCart(document, location.href, side);
     panel.root.hidden = !lines.length;
-    if (!list || reading || (signature(lines) === shown && marked(lines))) {
+    if (!list || reading || writing || (signature(lines) === shown && marked(lines))) {
       return;
     }
     store.then(function (s) {

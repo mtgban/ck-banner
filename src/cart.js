@@ -72,6 +72,7 @@ globalThis.CKB = globalThis.CKB || {};
 
     var line = {
       wrapper: wrapper,
+      form: found.form,
       host: wrapper.querySelector(".save-for-later-button"),
       lineID: found.id,
       productID: /^\d+$/.test(id) ? Number(id) : null,

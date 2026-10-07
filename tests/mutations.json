@@ -359,8 +359,8 @@
   {
     "guard": "a redrawn line is marked again",
     "file": "src/cartpage.js",
-    "find": "if (!list || reading || (signature(lines) === shown && marked(lines))) {",
-    "replace": "if (!list || reading || signature(lines) === shown) {",
+    "find": "if (!list || reading || writing || (signature(lines) === shown && marked(lines))) {",
+    "replace": "if (!list || reading || writing || signature(lines) === shown) {",
     "expectFailing": "a line the page redrew is marked again, once"
   },
   {
@@ -369,5 +369,68 @@
     "find": "        if (reading !== controller) {\n          return null;\n        }",
     "replace": "        if (false) {\n          return null;\n        }",
     "expectFailing": "a list that arrives after Escape is not used or kept"
+  },
+  {
+    "guard": "CK's answer, not the list, says the line was repriced",
+    "file": "src/update.js",
+    "find": "read.outcome = price === buy ? \"repriced\" : \"kept\";",
+    "replace": "read.outcome = \"repriced\";",
+    "expectFailing": "the line at its quantity and the old price is kept"
+  },
+  {
+    "guard": "another quantity in the answer is not taken as done",
+    "file": "src/update.js",
+    "find": "if (item.qty !== line.qty) {",
+    "replace": "if (false) {",
+    "expectFailing": "another quantity is reported, to be put back"
+  },
+  {
+    "guard": "the answer's line is the NM one",
+    "file": "src/update.js",
+    "find": "String(item.product_id) === String(line.productID) && item.style === \"NM\";",
+    "replace": "String(item.product_id) === String(line.productID);",
+    "expectFailing": "a line of the card in another style is not this line"
+  },
+  {
+    "guard": "the request carries the line's own quantity",
+    "file": "src/update.js",
+    "find": "quantity: line.qty }",
+    "replace": "quantity: 1 }",
+    "expectFailing": "sends the line's quantity, whatever it is"
+  },
+  {
+    "guard": "only one update runs at a time",
+    "file": "src/cartpage.js",
+    "find": "    if (writing || locked || reading) {\n      return;\n    }\n    var line = CKB.readCart",
+    "replace": "    if (locked || reading) {\n      return;\n    }\n    var line = CKB.readCart",
+    "expectFailing": "a second update waits for the first even if its button is enabled again"
+  },
+  {
+    "guard": "a failed update locks the others",
+    "file": "src/cartpage.js",
+    "find": "    locked = true;\n    updates(true);",
+    "replace": "    updates(false);",
+    "expectFailing": "a failed update locks every other until the page is reloaded"
+  },
+  {
+    "guard": "a stale list sends nothing",
+    "file": "src/cartpage.js",
+    "find": "if (!CKB.fresh(list, Date.now())) {",
+    "replace": "if (false) {",
+    "expectFailing": "a list that went stale since it was read sends nothing"
+  },
+  {
+    "guard": "a line that changed sends nothing",
+    "file": "src/cartpage.js",
+    "find": "if (!line || CKB.compare(line, list, side).verdict !== \"better\") {",
+    "replace": "if (!line) {",
+    "expectFailing": "a line that changed since it was marked sends nothing"
+  },
+  {
+    "guard": "a wrong quantity is put back",
+    "file": "src/cartpage.js",
+    "find": "CKB.restoreQuantity(line, answer.lineID, line.qty).then(function () {",
+    "replace": "Promise.resolve().then(function () {",
+    "expectFailing": "another quantity is put back through the line's own form, then the page reloads"
   }
 ]

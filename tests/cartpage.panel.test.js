@@ -72,9 +72,10 @@ describe("checking prices on the sell cart", () => {
     const it = await mountCart({ prices: moved() });
     it.button().click();
     await it.settle();
-    expect(it.mark(206649)).toMatchObject({ verdict: "better", badge: "List pays more", tone: "good" });
+    expect(it.mark(206649)).toMatchObject({ verdict: "better", badge: "Update price" });
     expect(it.mark(206649).tip).toBe(
-      "Card Kingdom's list now pays $28.50 each; the cart has $27.00 (+$1.50 each, +$1.50 on 1). Price list built 2026-09-17 04:04:33."
+      "Card Kingdom's list now pays $28.50 each; the cart has $27.00 (+$1.50 each, +$1.50 on 1). Price list built 2026-09-17 04:04:33." +
+        " Update price asks Card Kingdom to reprice this line."
     );
     expect(it.mark(224590)).toMatchObject({ verdict: "worse", badge: "List is lower", tone: "warn" });
     expect(it.mark(224590).tip).toBe(
@@ -247,5 +248,177 @@ describe("a page that redraws itself", () => {
     await it.settle(400);
     expect(it.panel.ownerDocument.querySelector(".ck-banner-line")).toBe(first);
     expect(it.marks().length).toBe(10);
+  });
+});
+
+describe("Update price", () => {
+  // CK's answer, shaped as its CartResponse, for line 206649 (1 at $27.00).
+  const answer = (changes = {}) => ({
+    ok: true,
+    status: 200,
+    json: () =>
+      Promise.resolve({
+        lineitems: [
+          { id: 5550001, product_id: 206649, style: "NM", qty: 1, price: "28.50", product: { price_buy: "28.50" }, ...changes },
+        ],
+      }),
+  });
+
+  // Two lines the list now pays more for: 206649 and 224590.
+  const two = () => pricelist({ 206649: { price_buy: "28.50" }, 224590: { price_buy: "0.20" } });
+
+  async function marked(options) {
+    const it = await mountCart({ prices: moved(), ...options });
+    it.button().click();
+    await it.settle();
+    return it;
+  }
+
+  test("a better sell line offers it, beside Save for Later", async () => {
+    const it = await marked();
+    expect(it.update(206649).textContent).toBe("Update price");
+    expect(it.update(206649).classList.contains("btn")).toBe(true);
+    expect(it.mark(206649)).toMatchObject({ verdict: "better", first: true, inLink: false });
+    expect(it.updates().length).toBe(1);
+    expect(it.mark(206649).tip).toMatch(/Update price asks Card Kingdom to reprice this line\.$/);
+  });
+
+  test("the buy cart offers none, even for a drop", async () => {
+    const it = await mountCart({ side: "buy", prices: pricelist({ 10202: { condition_values: { vg_price: "1.50" } } }) });
+    it.button().click();
+    await it.settle();
+    expect(it.mark(10202).verdict).toBe("dropped");
+    expect(it.updates()).toEqual([]);
+  });
+
+  test("one click sends one request, for the line's quantity, then reloads", async () => {
+    const it = await marked({ writes: () => Promise.resolve(answer()) });
+    it.update(206649).click();
+    await it.settle();
+    expect(it.written).toEqual([
+      { url: "https://www.cardkingdom.com/api/sellcart/add", method: "POST", body: '{"product_id":"206649","style":"NM","quantity":1}' },
+    ]);
+    expect(it.mark(206649)).toMatchObject({ badge: "Updated", tone: "good" });
+    expect(it.mark(206649).tip).toBe("Card Kingdom now pays $28.50 each.");
+    await it.settle(900);
+    expect(it.reloads.length).toBe(1);
+    expect(it.leaving()).toBe(false);
+  });
+
+  test("the price CK set is shown when it is not the list's", async () => {
+    const it = await marked({ writes: () => Promise.resolve(answer({ price: "28.00", product: { price_buy: "28.00" } })) });
+    it.update(206649).click();
+    await it.settle();
+    expect(it.mark(206649).tip).toBe("Card Kingdom now pays $28.00 each, not the $28.50 its list showed.");
+  });
+
+  test("only one update runs at a time, and the page is held while it does", async () => {
+    let release;
+    const it = await mountCart({ prices: two(), writes: () => new Promise((resolve) => (release = resolve)) });
+    it.button().click();
+    await it.settle();
+    expect(it.updates().length).toBe(2);
+    it.update(206649).click();
+    await it.settle();
+    expect(it.updates().every((b) => b.disabled)).toBe(true);
+    expect(it.button().disabled).toBe(true);
+    expect(it.leaving()).toBe(true);
+    it.update(224590).click();
+    it.escape();
+    await it.settle();
+    expect(it.written.length).toBe(1);
+    release(answer({ price: "27.00" }));
+    await it.settle();
+    // Escape did not stop it: CK's answer was read.
+    expect(it.mark(206649).badge).toBe("Price kept");
+  });
+
+  test("a second update waits for the first even if its button is enabled again", async () => {
+    // Synthetic: something on the page re-enables a button mid-write.
+    const it = await mountCart({ prices: two(), writes: () => new Promise(() => {}) });
+    it.button().click();
+    await it.settle();
+    it.update(206649).click();
+    await it.settle();
+    it.update(224590).disabled = false;
+    it.update(224590).click();
+    await it.settle();
+    expect(it.written.length).toBe(1);
+  });
+
+  test("CK keeping the old price is said, and nothing more is sent", async () => {
+    const it = await mountCart({ prices: two(), writes: () => Promise.resolve(answer({ price: "27.00" })) });
+    it.button().click();
+    await it.settle();
+    it.update(206649).click();
+    await it.settle(900);
+    expect(it.mark(206649)).toMatchObject({ badge: "Price kept", tone: "warn" });
+    expect(it.mark(206649).tip).toBe("Card Kingdom kept $27.00 each. Remove the card and add it again to take $28.50 each.");
+    expect(it.written.length).toBe(1);
+    expect(it.reloads).toEqual([]);
+    expect(it.update(224590).disabled).toBe(false);
+    expect(it.heading()).toBe("CK BANner - 2 better✓");
+  });
+
+  test("another quantity is put back through the line's own form, then the page reloads", async () => {
+    const it = await marked({
+      writes: (url) => Promise.resolve(url.endsWith("/api/sellcart/add") ? answer({ qty: 2 }) : { ok: true, status: 200 }),
+    });
+    it.update(206649).click();
+    await it.settle();
+    expect(it.written).toEqual([
+      { url: "https://www.cardkingdom.com/api/sellcart/add", method: "POST", body: '{"product_id":"206649","style":"NM","quantity":1}' },
+      { url: "https://www.cardkingdom.com/sellcart/lineitem/5550001", method: "POST", body: "_token=TOKEN&qty=1" },
+    ]);
+    expect(it.mark(206649).badge).toBe("Quantity changed");
+    expect(it.reloads.length).toBe(1);
+  });
+
+  test("a failed update locks every other until the page is reloaded", async () => {
+    const it = await mountCart({ prices: two(), writes: () => Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) }) });
+    it.button().click();
+    await it.settle();
+    it.update(206649).click();
+    await it.settle(900);
+    expect(it.mark(206649)).toMatchObject({ badge: "Not updated", tone: "bad" });
+    expect(it.mark(206649).tip).toBe("Card Kingdom answered 503. Reload the page to see what Card Kingdom holds.");
+    expect(it.failed()).toBe(true);
+    expect(it.update(224590).disabled).toBe(true);
+    it.update(224590).click();
+    await it.settle();
+    expect(it.written.length).toBe(1);
+    expect(it.reloads).toEqual([]);
+  });
+
+  test("a list that went stale since it was read sends nothing", async () => {
+    // Kept, and fresh, until a moment after the page marked the cart.
+    const it = await mountCart({ kept: CKB.reducePrices(moved(), Date.now() - CKB.LIST_TTL + 150) });
+    expect(it.update(206649)).not.toBeNull();
+    await it.settle(250);
+    it.update(206649).click();
+    await it.settle();
+    expect(it.written).toEqual([]);
+    expect(it.mark(206649)).toMatchObject({ badge: "Check again", tone: "warn" });
+    expect(it.mark(206649).tip).toBe("The price list is over an hour old; check prices again before updating.");
+  });
+
+  test("a line that changed since it was marked sends nothing", async () => {
+    const it = await marked({ writes: () => Promise.resolve(answer()) });
+    // Synthetic: the page now shows the line at the list's price.
+    const wrapper = it.window.document.querySelector('.save-for-later-button a[data-ckproductid="206649"]').closest(".cart-item-wrapper");
+    wrapper.querySelector(".item-price-wrapper").firstChild.textContent = " $28.50 ";
+    wrapper.querySelector(".item-price-wrapper small").textContent = " $28.50 /ea ";
+    it.update(206649).click();
+    await it.settle();
+    expect(it.written).toEqual([]);
+    expect(it.mark(206649).tip).toBe("This line changed since it was marked; check prices again.");
+  });
+
+  test("nothing it sends is ever a delete", async () => {
+    const it = await marked({ writes: (url) => Promise.resolve(url.endsWith("/add") ? answer({ qty: 3 }) : { ok: true, status: 200 }) });
+    it.update(206649).click();
+    await it.settle();
+    expect(it.written.length).toBe(2);
+    expect(it.written.every((w) => w.method === "POST" && !/delete|empty|remove/i.test(w.url + w.body))).toBe(true);
   });
 });
