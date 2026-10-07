@@ -72,6 +72,10 @@ try {
       continue;
     }
     missed++;
+    if (result.status !== 0 && result.failed.length === 0) {
+      console.log(`BROKEN   ${m.guard}: the suite did not run; is the replacement valid code?`);
+      continue;
+    }
     console.log(`SURVIVED ${m.guard}: no failing test named "${m.expectFailing}"`);
     for (const line of result.failed) {
       console.log("         " + line);
