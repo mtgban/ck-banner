@@ -13,12 +13,13 @@ A saved page belongs to a signed-in account, so the fragment under test is
 rebuilt rather than edited down: only allowlisted attributes survive, address
 and tracking cells are replaced whole, every order id is renumbered wherever it
 appears, every amount is replaced with a synthetic one of the same shape, and
-the list's size (its results line and pager) is a synthetic one. Dates and
-statuses stay as printed. A cart keeps CK's markup and none of the account's
-items: each line is refilled with an item drawn at random (seeded) from a
-price list, at that list's price, with line ids renumbered and every _token
-replaced. The script then checks its own output for
-anything it should have removed, and refuses to write if it finds one.
+the list's size (its results line and pager) is a synthetic one. Every date
+moves to a synthetic one that keeps the page's order; statuses stay as
+printed. A cart keeps CK's markup and none of the account's items: each line
+is refilled with an item drawn at random (seeded) from a price list, at that
+list's price, with line ids renumbered and every _token replaced. The script
+then checks its own output for anything it should have removed, and refuses
+to write if it finds one.
 """
 
 import argparse
@@ -28,12 +29,15 @@ import os
 import random
 import re
 import sys
+from datetime import datetime, timedelta
 from html.parser import HTMLParser
 
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
 KEEP = {"class", "id", "id-", "colspan", "role", "href", "aria-label", "method", "action", "name", "type", "value", "for", "selected", "alt", "data-ckproductid"}
 SITE = "https://www.cardkingdom.com/"
 MONEY = re.compile(r"\$[\d,]+\.\d{2}")
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+DATE = re.compile(r"\b(" + "|".join(MONTHS) + r") (\d{1,2}), (\d{4})(?: (\d{1,2}):(\d{2}) ([AP]M))?")
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests", "fixtures")
 
 
@@ -114,6 +118,36 @@ def only(nodes, what):
     return nodes[0]
 
 
+class Dates:
+    """Moves every date on a page to a synthetic one. The dates keep their
+    order, so the page stays newest first and nothing is shipped before it is
+    paid, but not their days or the gaps between them."""
+
+    START = datetime(2026, 1, 5, 9, 0)
+
+    def __init__(self, seed, found):
+        def moment(m):
+            month = MONTHS.index(m.group(1)) + 1
+            if m.group(4):
+                hour = int(m.group(4)) % 12 + (12 if m.group(6) == "PM" else 0)
+                return datetime(int(m.group(3)), month, int(m.group(2)), hour, int(m.group(5)))
+            # A date with no time sorts after every time that day.
+            return datetime(int(m.group(3)), month, int(m.group(2)), 23, 59, 59)
+
+        rng = random.Random(seed)
+        at = self.START
+        self.map = {}
+        for m in sorted({m.group(0): m for m in found}.values(), key=lambda m: (moment(m), m.group(0))):
+            at += timedelta(minutes=rng.randint(40, 2880))
+            day = f"{MONTHS[at.month - 1]} {at.day}, {at.year}"
+            if m.group(4):
+                day += f" {at.hour % 12 or 12:02d}:{at.minute:02d} {'PM' if at.hour >= 12 else 'AM'}"
+            self.map[m.group(0)] = day
+
+    def apply(self, value):
+        return DATE.sub(lambda m: self.map[m.group(0)], value)
+
+
 class Renamer:
     """Maps every private value to a stand-in, the same one each time."""
 
@@ -121,6 +155,7 @@ class Renamer:
         self.first_id = first_id
         self.ids = {}
         self.amounts = {}
+        self.dates = None
 
     def order(self, original):
         return self.ids.setdefault(original, str(self.first_id + len(self.ids)))
@@ -137,6 +172,8 @@ class Renamer:
         return self.amounts[original]
 
     def apply(self, value):
+        if self.dates:
+            value = self.dates.apply(value)
         value = MONEY.sub(lambda m: self.amount(m.group(0)), value)
         for original, stand_in in self.ids.items():
             value = re.sub(r"\b" + original + r"\b", stand_in, value)
@@ -189,8 +226,14 @@ def cut_history(path, address_id, first_id, size):
                 link.attrs = [("href", "#")]
                 link.kids = ["[track package]"]
 
+    found = []
+    for node in walk(table):
+        found += [m for kid in node.kids if isinstance(kid, str) for m in DATE.finditer(kid)]
+        found += [m for _, v in node.attrs if v for m in DATE.finditer(v)]
+    names.dates = Dates(first_id, found)
+
     out = serialize(table, names) + serialize(nav, names)
-    check(out, list(names.ids) + private + sizes)
+    check(out, list(names.ids) + private + sizes + list(names.dates.map))
     return out, names
 
 
@@ -524,8 +567,8 @@ def write(name, body, source, what):
 
 
 HISTORY = (
-    "Order ids are\nrenumbered, amounts and the list's size are synthetic, addresses and tracking\n"
-    "are replaced; dates and statuses are as printed."
+    "Order ids are\nrenumbered, amounts, dates and the list's size are synthetic, addresses and\n"
+    "tracking are replaced; statuses are as printed."
 )
 CART = (
     "CK's markup with\nnone of the account's items: every line holds an item drawn at random from a\n"
