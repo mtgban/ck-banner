@@ -375,8 +375,11 @@ Version 0.1.0 is released only after these have been checked on the live site,
 in Chrome and Firefox: a real price list read from each cart page, signed in
 and out; the history sort and a full sales walk under Cloudflare; a Vue
 re-render re-marking each line once and never the wrong one; IndexedDB from
-the content script; the cart reached by every route; and *Update price* on a
-cheap card while the account's owner watches.
+the content script; the cart reached by every route; *Update price* on a
+cheap card while the account's owner watches; how long the page stalls
+while the list is parsed and reduced, on its own thread and past Escape's
+reach once the body has arrived; and `tests/saved.test.js` on pages saved
+that day, which CI never has.
 
 ## 16. Not yet known
 
