@@ -191,10 +191,10 @@
   }
 
   function answered(line, box, answer) {
-    // Both of these end in a reload, so the line stays "Updating" until the
-    // cart shows CK's own figures; nothing else is sent.
+    // Both of these end in a reload, so the line stays "Updating", and the
+    // panel busy, until the cart shows CK's own figures; nothing else is sent.
     if (answer.outcome === "repriced") {
-      panel.busy(false);
+      panel.release();
       CKB.reload();
       return;
     }
@@ -204,7 +204,7 @@
           refused(box, "Card Kingdom set this line to " + answer.qty + ", and putting back " + line.qty + " failed");
           return;
         }
-        panel.busy(false);
+        panel.release();
         CKB.reload();
       });
       return;
