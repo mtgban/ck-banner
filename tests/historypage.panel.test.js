@@ -255,13 +255,45 @@ describe("the kept file", () => {
     expect(it.saved.length).toBe(2);
   });
 
-  test("a year with nothing to save keeps nothing", async () => {
+  test("a walk that found nothing is kept as that answer", async () => {
     const it = mountHistory({ total: 60 });
     await downloaded(it, "2010");
+    const walked = it.asked.length;
     await downloaded(it, "2010");
-    expect(it.asked.length).toBe(6);
+    expect(it.asked.length).toBe(walked + 1);
     expect(it.saved).toEqual([]);
     expect(it.failed()).toBe(true);
+    expect(it.go().textContent).toBe("Rebuild");
+    expect(it.tip()).toMatch(
+      /^No shipped, paid purchases in 2010, as built at \d\d:\d\d from \d+ pages?: page 1 has not changed since\. Rebuild reads the list again\.$/
+    );
+  });
+
+  test("a Rebuild that finds nothing replaces the file kept before", async () => {
+    const idb = new IDBFactory();
+    const page1 = docOf(pageHTML("order-history.html", { n: 1, total: 60 }));
+    const store = await CKB.openStore(idb);
+    // Synthetic: a 2020 file kept from a list that no longer holds 2020.
+    await store.put(CKB.fileKey("purchases", 2020), {
+      v: CKB.FILE_VERSION,
+      signature: CKB.historySignature(page1, "purchases"),
+      csv: "kept\n",
+      name: "ck-purchases-2020.csv",
+      count: 1,
+      read: "3 pages",
+      builtAt: Date.now() - 21 * CKB.FILE_TTL,
+    });
+    const it = mountHistory({ total: 60, idb });
+    await downloaded(it, "2020");
+    expect(it.go().textContent).toBe("Rebuild");
+    it.go().click();
+    await it.settle();
+    expect(it.failed()).toBe(true);
+    it.go().click();
+    await it.settle();
+    expect(it.saved.length).toBe(1);
+    expect(it.failed()).toBe(true);
+    expect(it.go().textContent).toBe("Rebuild");
   });
 
   test("a year is cut from the kept every-year file, with no walk", async () => {
@@ -279,6 +311,38 @@ describe("the kept file", () => {
     it.go().click();
     await it.settle();
     expect(it.asked.length).toBe(3 + 1 + 2);
+  });
+
+  test("the every-year file is used over an older file of the year", async () => {
+    const it = mountHistory({ total: 60 });
+    await downloaded(it, "2026");
+    await downloaded(it, "all");
+    const asked = it.asked.length;
+    await downloaded(it, "2026");
+    expect(it.asked.length).toBe(asked + 1);
+    expect(it.tip()).toMatch(/^Saved ck-purchases-2026\.csv from the every-year list built at /);
+  });
+
+  test("an every-year file a day old still answers for a past year over an older file", async () => {
+    const idb = new IDBFactory();
+    const page1 = docOf(pageHTML("order-history.html", { n: 1, total: 60 }));
+    const store = await CKB.openStore(idb);
+    const kept = { v: CKB.FILE_VERSION, signature: CKB.historySignature(page1, "purchases"), count: 1, read: "3 pages" };
+    // Synthetic: a 2020 file from three weeks ago, and a later read of every
+    // year that found no 2020 order left.
+    await store.put(CKB.fileKey("purchases", 2020), { ...kept, csv: "kept\n", name: "ck-purchases-2020.csv", builtAt: Date.now() - 21 * CKB.FILE_TTL });
+    await store.put(CKB.fileKey("purchases", null), {
+      ...kept,
+      csv: "all\n",
+      name: "ck-purchases-all.csv",
+      rows: [],
+      builtAt: Date.now() - 2 * CKB.FILE_TTL,
+    });
+    const it = mountHistory({ total: 60, idb });
+    await downloaded(it, "2020");
+    expect(it.asked.length).toBe(1);
+    expect(it.saved).toEqual([]);
+    expect(it.tip()).toMatch(/^No shipped, paid purchases in 2020, in the every-year list built at /);
   });
 
   test("each year keeps its own file", async () => {
