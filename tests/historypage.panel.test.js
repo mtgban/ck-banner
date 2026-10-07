@@ -58,7 +58,7 @@ describe("downloading", () => {
     expect(it.go().disabled).toBe(true);
     expect(it.year().disabled).toBe(true);
     expect(it.tip()).toBe("");
-    await it.settle();
+    await it.idle();
 
     // Page 2 holds 2025, older than the year asked for, so the walk ends there.
     expect(it.asked).toEqual([
@@ -85,7 +85,7 @@ describe("downloading", () => {
     const it = mountHistory({ kind: "sales", total: 60 });
     it.choose("2026");
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.asked.length).toBe(2);
     const file = await it.file();
     expect(file.name).toBe("ck-sales-2026.csv");
@@ -101,7 +101,7 @@ describe("downloading", () => {
     const it = mountHistory({ total: 60 });
     it.choose("all");
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.asked.length).toBe(3);
     const file = await it.file();
     expect(file.name).toBe("ck-purchases-all.csv");
@@ -113,7 +113,7 @@ describe("downloading", () => {
     const it = mountHistory({ total: 60 });
     it.choose("2010");
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.saved).toEqual([]);
     expect(it.heading()).toBe("CK BANner - purchases\u2717");
     expect(it.failed()).toBe(true);
@@ -124,7 +124,7 @@ describe("downloading", () => {
     const it = mountHistory({ change: { 2: () => new Error("Card Kingdom is checking the browser; reload and try again") } });
     it.choose("all");
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.saved).toEqual([]);
     expect(it.failed()).toBe(true);
     expect(it.heading()).toBe("CK BANner - purchases\u2717");
@@ -141,7 +141,7 @@ describe("downloading", () => {
     });
     it.choose("all");
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.saved).toEqual([]);
     expect(it.tip()).toBe("Order 2000003 is COMPLETED but carries no date to file it under");
   });
@@ -154,6 +154,8 @@ describe("stopping and leaving", () => {
     const it = mountHistory({ change: { 2: (html) => held.then(() => html) } });
     it.choose("all");
     it.go().click();
+    // Held at page 2, which is asked for once page 1 is read.
+    await it.askedFor(2);
     await it.settle();
     expect(it.busy()).toBe(true);
     expect(it.word()).toBe("page 1");
@@ -173,7 +175,7 @@ describe("stopping and leaving", () => {
     expect(it.leaving()).toBe(false);
     it.go().click();
     expect(it.leaving()).toBe(true);
-    await it.settle();
+    await it.idle();
     expect(it.leaving()).toBe(false);
   });
 
@@ -181,7 +183,7 @@ describe("stopping and leaving", () => {
     const it = mountHistory({ total: 25 });
     it.choose("2026");
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.markShown()).toBe(true);
     it.choose("2025");
     expect(it.markShown()).toBe(false);
@@ -196,7 +198,7 @@ describe("the kept file", () => {
   async function downloaded(it, value = "all") {
     it.choose(value);
     it.go().click();
-    await it.settle();
+    await it.idle();
   }
 
   test("a second download reads page 1 alone and hands out the kept file", async () => {
@@ -205,7 +207,7 @@ describe("the kept file", () => {
     // The walk reused the page 1 it was handed: three pages, three requests.
     expect(it.asked.length).toBe(3);
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.asked.slice(3)).toEqual([ORDERS + "?page=1"]);
     expect((await it.file(1)).text).toBe((await it.file(0)).text);
     expect(it.go().textContent).toBe("Rebuild");
@@ -219,9 +221,9 @@ describe("the kept file", () => {
     const it = mountHistory({ total: 60 });
     await downloaded(it);
     it.go().click();
-    await it.settle();
+    await it.idle();
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.asked.length).toBe(3 + 1 + 3);
     expect(it.go().textContent).toBe("Download CSV");
   });
@@ -233,7 +235,7 @@ describe("the kept file", () => {
     // Synthetic: the newest order's ship date moved.
     change[1] = (html) => html.replace(/Shipped\s+[A-Z][a-z]{2} \d{1,2}, 2026 \d\d:\d\d [AP]M/, "Shipped Feb 28, 2026 11:00 PM");
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.asked.length).toBe(6);
     expect(it.go().textContent).toBe("Download CSV");
   });
@@ -245,12 +247,12 @@ describe("the kept file", () => {
     change[1] = (html) => html.replace(/Shipped\s+[A-Z][a-z]{2} \d{1,2}, 2026 \d\d:\d\d [AP]M/, "Shipped Feb 28, 2026 11:00 PM");
     change[2] = () => new Error("Card Kingdom is checking the browser; reload and try again");
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.failed()).toBe(true);
     delete change[1];
     delete change[2];
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.go().textContent).toBe("Rebuild");
     expect(it.saved.length).toBe(2);
   });
@@ -287,10 +289,10 @@ describe("the kept file", () => {
     await downloaded(it, "2020");
     expect(it.go().textContent).toBe("Rebuild");
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.failed()).toBe(true);
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.saved.length).toBe(1);
     expect(it.failed()).toBe(true);
     expect(it.go().textContent).toBe("Rebuild");
@@ -309,7 +311,7 @@ describe("the kept file", () => {
     );
     // Rebuild reads that year from the list itself.
     it.go().click();
-    await it.settle();
+    await it.idle();
     expect(it.asked.length).toBe(3 + 1 + 2);
   });
 

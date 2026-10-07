@@ -114,6 +114,22 @@ export function mountHistory({ kind = "purchases", total = 210, change = {}, bod
     escape: () => window.document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape" })),
     file: async (i = 0) => ({ name: saved[i].name, text: await saved[i].blob.text() }),
     settle: (ms = 30) => new Promise((done) => setTimeout(done, ms)),
+    // idle is settle, then as long again as the work a click started runs on
+    // a loaded machine, up to a few seconds.
+    idle: async () => {
+      const until = Date.now() + 5000;
+      await new Promise((done) => setTimeout(done, 30));
+      while (panel.classList.contains("ck-banner-busy") && Date.now() < until) {
+        await new Promise((done) => setTimeout(done, 10));
+      }
+    },
+    // askedFor waits until n pages have been asked for, up to a few seconds.
+    askedFor: async (n) => {
+      const until = Date.now() + 5000;
+      while (asked.length < n && Date.now() < until) {
+        await new Promise((done) => setTimeout(done, 10));
+      }
+    },
   };
 }
 
@@ -234,5 +250,16 @@ export async function mountCart({ side = "sell", path, body, prices = pricelist(
     },
     kept: async () => CKB.keptList(await CKB.openStore(idb), Date.now()),
     settle,
+    // idle is settle, then as long again as the work a click started runs on
+    // a loaded machine, up to a few seconds; a reload the work asks for ends
+    // it too.
+    idle: async () => {
+      const until = Date.now() + 5000;
+      const reloaded = reloads.length;
+      await settle();
+      while (panel.classList.contains("ck-banner-busy") && reloads.length === reloaded && Date.now() < until) {
+        await settle(10);
+      }
+    },
   };
 }

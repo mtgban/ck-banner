@@ -91,9 +91,11 @@ describe("the pace", () => {
   });
 
   test("no pause costs nothing", async () => {
-    const started = Date.now();
+    // Without a timer of its own, it is done before any timer set first.
+    let timed = false;
+    setTimeout(() => (timed = true), 0);
     await CKB.after(0);
-    expect(Date.now() - started).toBeLessThan(20);
+    expect(timed).toBe(false);
   });
 
   test("pages are at least a second apart", () => {
