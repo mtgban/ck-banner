@@ -77,23 +77,23 @@ describe("downloading", () => {
     expect(it.busy()).toBe(false);
     expect(it.go().disabled).toBe(false);
     expect(it.tip()).toBe(
-      "Saved ck-purchases-2026.csv: 25 orders, filed by order date. Read 2 of 9 pages, the rest being older; left out 25 from other years."
+      "Saved ck-purchases-2026.csv: 25 orders, filed by order date. Read 2 pages; left out 25 from other years."
     );
   });
 
-  test("sales read every page and are filed by the date received", async () => {
+  test("sales are read until a page is past the year, filed by the date received", async () => {
     const it = mountHistory({ kind: "sales", total: 60 });
     it.choose("2026");
     it.go().click();
     await it.settle();
-    expect(it.asked.length).toBe(3);
+    expect(it.asked.length).toBe(2);
     const file = await it.file();
     expect(file.name).toBe("ck-sales-2026.csv");
     expect(file.text.trimEnd().split("\n").length).toBe(20);
     expect(it.heading()).toBe("CK BANner - 19 completed\u2713");
-    // 60 orders: two full pages of 19 completed and 6 cancelled, then 10 more.
+    // Two full pages of 19 completed and 6 cancelled sales.
     expect(it.tip()).toBe(
-      "Saved ck-sales-2026.csv: 19 orders, filed by the date Card Kingdom received them. Read 3 pages; left out 15 CANCELED, 26 from other years."
+      "Saved ck-sales-2026.csv: 19 orders, filed by the date Card Kingdom received them. Read 2 pages; left out 12 CANCELED, 19 from other years."
     );
   });
 
@@ -156,7 +156,7 @@ describe("stopping and leaving", () => {
     it.go().click();
     await it.settle();
     expect(it.busy()).toBe(true);
-    expect(it.word()).toBe("1 / 9 pages");
+    expect(it.word()).toBe("page 1");
 
     it.escape();
     expect(it.busy()).toBe(false);

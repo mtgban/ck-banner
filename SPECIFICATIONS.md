@@ -246,9 +246,14 @@ date's. A completed sale with no Received date refuses the export.
   refuses the export.
 - A Cloudflare challenge stops the walk, keeps nothing, and says "Card Kingdom
   is checking the browser; reload and try again".
-- Purchases may stop early once a page reaches an older year, provided every
-  order read so far came newest first. Sales always read every page: their year is
-  the Received date, which the order-date sort does not put in order.
+- For one year the walk does not read the pages before it. The list is newest
+  first by order date, so a binary search finds the first page whose oldest
+  order is from the year or before, and pages are read from there until one
+  is past the year: for purchases, a page holding an older order; for sales,
+  filed by the Received date, which can fall after the year's turn, a page
+  with no sale ordered or received in the year or later. A page read out of
+  order makes the walk read every page instead. *All years* reads every
+  page.
 - Escape cancels, and a page that arrives after it is dropped; a cancelled or
   refused walk writes nothing.
 
@@ -301,7 +306,7 @@ before it is left.
 
 On the history pages the row is a year (All years, then this year back to
 1999, the year CK opened; this year is chosen) and *Download CSV*. While the
-walk runs the heading counts pages (`3 / 9 pages`). Done, it says how many
+walk runs the heading names the page it is reading (`page 3`). Done, it says how many
 orders the file holds (`34 shipped`, `12 completed`) beside a tick, and the
 tooltip names the file, the pages read, and what was left out by status,
 unpaid, or year. Nothing to save is a red cross and no file. When the file

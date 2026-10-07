@@ -65,10 +65,7 @@
   }
 
   function pagesRead(walked) {
-    if (walked.pages === walked.pageCount) {
-      return plural(walked.pages, "page", "pages");
-    }
-    return walked.pages + " of " + walked.pageCount + " pages, the rest being older";
+    return plural(walked.pages, "page", "pages");
   }
 
   // recap is what a saved file says about itself on the tooltip: what is in
@@ -166,9 +163,9 @@
               year: y,
               first: first,
               cancelled: stale,
-              progress: function (n, pages) {
+              progress: function (n) {
                 if (!stale()) {
-                  panel.word(n + " / " + pages + " pages");
+                  panel.word("page " + n);
                 }
               },
             });

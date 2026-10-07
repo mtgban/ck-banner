@@ -228,14 +228,20 @@ globalThis.CKB = globalThis.CKB || {};
     return (((when.year * 13 + when.month) * 32 + when.day) * 24 + when.hour) * 60 + when.minute;
   }
 
-  // walkHistory reads the whole list from page 1, one page at a time, and
-  // answers with every row read. Rather than answer with less than the list,
-  // it refuses: a page that is short or out of place, an order seen twice, or
-  // a list whose size changes while it is read.
+  // walkHistory reads the list, one page at a time, and answers with the
+  // rows of the pages that hold the year asked for, or of every page for
+  // every year. Rather than answer with less than that, it refuses: a page
+  // that is short or out of place, an order seen twice, or a list whose size
+  // changes while it is read.
   //
-  // With a year, purchases stop after the first page holding an older order,
-  // as long as every order so far came newest first. Sales never stop early:
-  // a sale's year is its Received date, which the list is not sorted by.
+  // The list is newest first by order date, so a year is found without
+  // reading what comes before it: a binary search finds the first page whose
+  // oldest order is from the year or before, and pages are read from there
+  // until one is past the year. For a purchase, filed by its order date, that
+  // is a page holding an older order. For a sale, filed by the date CK
+  // received it, which can come after a year's turn, it is a page with no
+  // sale ordered or received in the year or later. If a page read shows the
+  // list out of order, every page is read instead.
   //
   // options: year, fetchPage, pace, cancelled(), progress(page, pages), and
   // first, page 1 already in hand, which is then not asked for again.
@@ -247,13 +253,14 @@ globalThis.CKB = globalThis.CKB || {};
       return false;
     };
     var progress = opts.progress || function () {};
-    var stopBelow = kind === "purchases" && opts.year ? opts.year : null;
+    var year = opts.year || null;
 
     var walked = { rows: [], pages: 0, pageCount: 0, total: 0, stoppedEarly: false, cancelled: false };
+    var read = {};
     var seen = {};
-    var sorted = true;
-    var newest = Infinity;
     var per = 0;
+    var asked = 0;
+    var CANCELLED = {};
 
     function take(n, doc) {
       var rows = CKB.readHistory(doc, kind);
@@ -281,63 +288,129 @@ globalThis.CKB = globalThis.CKB || {};
       if (rows.length !== last - first + 1) {
         throw new Error("Page " + n + " came back with " + rows.length + " of " + (last - first + 1) + " orders, so nothing was saved");
       }
-
       for (var i = 0; i < rows.length; i++) {
         if (seen[rows[i].orderID]) {
           throw new Error("Order " + rows[i].orderID + " was listed twice, so the history changed while it was read");
         }
         seen[rows[i].orderID] = true;
-        var at = stamp(rows[i].ordered);
-        if (at > newest) {
-          sorted = false;
-        }
-        newest = at;
-        walked.rows.push(rows[i]);
       }
-      walked.pages = n;
       return rows;
     }
 
-    function older(rows) {
-      for (var i = 0; i < rows.length; i++) {
-        if (rows[i].ordered.year < stopBelow) {
-          return true;
-        }
+    // page reads page n once, pacing every request after the first.
+    function page(n) {
+      if (read[n]) {
+        return Promise.resolve(read[n]);
       }
-      return false;
-    }
-
-    function stop() {
-      walked.cancelled = true;
-      walked.rows = [];
-      return walked;
-    }
-
-    function step(n) {
-      return CKB.after(n === 1 ? 0 : pace).then(function () {
+      return CKB.after(asked++ === 0 ? 0 : pace).then(function () {
         if (cancelled()) {
-          return stop();
+          throw CANCELLED;
         }
         var asking = n === 1 && opts.first ? Promise.resolve(opts.first) : fetchPage(base + "?page=" + n);
         return asking.then(function (doc) {
           // A page that arrives after Escape is dropped, not kept.
           if (cancelled()) {
-            return stop();
+            throw CANCELLED;
           }
-          var rows = take(n, doc);
+          read[n] = take(n, doc);
+          walked.pages++;
           progress(n, walked.pageCount);
-          if (n >= walked.pageCount) {
-            return walked;
-          }
-          if (stopBelow && sorted && older(rows)) {
-            walked.stoppedEarly = true;
-            return walked;
-          }
-          return step(n + 1);
+          return read[n];
         });
       });
     }
 
-    return step(1);
+    // orderly says whether every page read is newest first, within itself
+    // and against the pages read before it.
+    function orderly() {
+      var newest = Infinity;
+      for (var n = 1; n <= walked.pageCount; n++) {
+        var rows = read[n] || [];
+        for (var i = 0; i < rows.length; i++) {
+          var at = stamp(rows[i].ordered);
+          if (at > newest) {
+            return false;
+          }
+          newest = at;
+        }
+      }
+      return true;
+    }
+
+    function oldest(rows) {
+      return rows[rows.length - 1].ordered.year;
+    }
+
+    // past says whether a page is beyond the year, so none after it can hold
+    // a row filed in it.
+    function past(rows) {
+      return rows.some(function (row) {
+        return row.ordered.year < year;
+      }) && (kind === "purchases" || rows.every(function (row) {
+        return row.ordered.year < year && (CKB.yearOf(row, kind) === null || CKB.yearOf(row, kind) < year);
+      }));
+    }
+
+    // search is the first page from lo to hi whose oldest order is from the
+    // year or before, or hi + 1 when there is none.
+    function search(lo, hi) {
+      if (lo > hi) {
+        return Promise.resolve(lo);
+      }
+      var mid = (lo + hi) >> 1;
+      return page(mid).then(function (rows) {
+        return oldest(rows) <= year ? search(lo, mid - 1) : search(mid + 1, hi);
+      });
+    }
+
+    // through reads pages from n until one is past the year, or the last.
+    function through(n) {
+      return page(n).then(function (rows) {
+        return n >= walked.pageCount || past(rows) ? n : through(n + 1);
+      });
+    }
+
+    function keep(from, to) {
+      for (var n = from; n <= to; n++) {
+        walked.rows = walked.rows.concat(read[n] || []);
+      }
+      walked.stoppedEarly = walked.pages < walked.pageCount;
+      return walked;
+    }
+
+    function all() {
+      return through(1).then(function () {
+        return keep(1, walked.pageCount);
+      });
+    }
+
+    return page(1)
+      .then(function (first) {
+        if (year === null) {
+          year = -Infinity;
+          return all();
+        }
+        var start = oldest(first) <= year ? Promise.resolve(1) : search(2, walked.pageCount);
+        return start.then(function (from) {
+          if (from > walked.pageCount) {
+            return orderly() ? keep(1, 0) : (year = -Infinity, all());
+          }
+          return through(from).then(function (to) {
+            if (!orderly()) {
+              year = -Infinity;
+              return all();
+            }
+            return keep(from, to);
+          });
+        });
+      })
+      .then(null, function (err) {
+        if (err !== CANCELLED) {
+          throw err;
+        }
+        walked.cancelled = true;
+        walked.rows = [];
+        return walked;
+      });
   };
 })(globalThis.CKB);

@@ -119,24 +119,24 @@
     "expectFailing": "an order listed twice is refused"
   },
   {
-    "guard": "purchases stop early only while the list is newest first",
+    "guard": "a list out of order is read whole",
     "file": "src/history.js",
-    "find": "if (stopBelow && sorted && older(rows)) {",
-    "replace": "if (stopBelow && older(rows)) {",
-    "expectFailing": "purchases out of order do not stop early"
+    "find": "            if (!orderly()) {",
+    "replace": "            if (false) {",
+    "expectFailing": "purchases out of order are read whole"
   },
   {
-    "guard": "sales never stop early",
+    "guard": "a sale received after the year's turn is still found",
     "file": "src/history.js",
-    "find": "var stopBelow = kind === \"purchases\" && opts.year ? opts.year : null;",
-    "replace": "var stopBelow = opts.year ? opts.year : null;",
-    "expectFailing": "sales never stop early"
+    "find": "return row.ordered.year < year && (CKB.yearOf(row, kind) === null || CKB.yearOf(row, kind) < year);",
+    "replace": "return row.ordered.year < year;",
+    "expectFailing": "a sale received in the year but ordered before it is still found"
   },
   {
-    "guard": "a cancelled walk keeps nothing",
+    "guard": "a cancelled walk asks for nothing more",
     "file": "src/history.js",
-    "find": "walked.rows = [];",
-    "replace": "walked.rows = walked.rows;",
+    "find": "        if (cancelled()) {\n          throw CANCELLED;\n        }\n        var asking",
+    "replace": "        var asking",
     "expectFailing": "a cancelled walk keeps nothing"
   },
   {
@@ -149,8 +149,8 @@
   {
     "guard": "the first page is not paced",
     "file": "src/history.js",
-    "find": "CKB.after(n === 1 ? 0 : pace)",
-    "replace": "CKB.after(pace)",
+    "find": "CKB.after(asked++ === 0 ? 0 : pace)",
+    "replace": "CKB.after(pace + 0 * asked++)",
     "expectFailing": "it waits before each page after the first"
   },
   {
@@ -474,6 +474,13 @@
     "find": "        if (file) {\n          file.v = CKB.FILE_VERSION;",
     "replace": "        file = file || { name: \"none\", csv: \"\", count: 0, read: \"\" };\n        if (file) {\n          file.v = CKB.FILE_VERSION;",
     "expectFailing": "a year with nothing to save keeps nothing"
+  },
+  {
+    "guard": "a year is found without reading the pages before it",
+    "file": "src/history.js",
+    "find": "var start = oldest(first) <= year ? Promise.resolve(1) : search(2, walked.pageCount);",
+    "replace": "var start = Promise.resolve(1);",
+    "expectFailing": "a year deep in the list is found without reading the pages before it"
   },
   {
     "guard": "a card's key tells foil from plain",

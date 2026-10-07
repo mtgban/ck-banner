@@ -106,18 +106,36 @@ describe("refusing a list it did not read whole", () => {
   });
 });
 
-describe("stopping early", () => {
-  // Eight pages, a year apart: 2026 on page 1, 2025 on page 2, and so on.
+describe("finding a year", () => {
+  // Eight pages, a year apart: 2026 on page 1, 2025 on page 2, and so on
+  // down to 2019 on page 8.
+  const pages = (shop) => shop.asked.map((url) => Number(/page=(\d+)/.exec(url)[1]));
 
-  test("purchases stop after the first page holding an older year", async () => {
+  test("a recent year reads from page 1 until a page holds an older order", async () => {
     const shop = purchases(200);
-    const walked = await walk("purchases", shop, { year: 2025 });
-    expect(shop.asked.length).toBe(3);
+    const walked = await walk("purchases", shop, { year: 2026 });
+    expect(pages(shop)).toEqual([1, 2]);
     expect(walked.stoppedEarly).toBe(true);
-    expect(walked.rows.filter((row) => row.ordered.year === 2025).length).toBe(25);
+    expect(walked.rows.filter((row) => row.ordered.year === 2026).length).toBe(25);
   });
 
-  test("purchases out of order do not stop early", async () => {
+  test("a year deep in the list is found without reading the pages before it", async () => {
+    // A binary search over the pages: 5 holds 2022, 7 holds 2020, 6 2021.
+    const shop = purchases(200);
+    const walked = await walk("purchases", shop, { year: 2020 });
+    expect(pages(shop)).toEqual([1, 5, 7, 6, 8]);
+    expect(walked.rows.filter((row) => row.ordered.year === 2020).length).toBe(25);
+    expect(walked.rows.every((row) => row.ordered.year <= 2020)).toBe(true);
+  });
+
+  test("a year older than the whole list finds nothing", async () => {
+    const shop = purchases(200);
+    const walked = await walk("purchases", shop, { year: 2010 });
+    expect(pages(shop)).toEqual([1, 5, 7, 8]);
+    expect(walked.rows).toEqual([]);
+  });
+
+  test("purchases out of order are read whole", async () => {
     // Synthetic: one order on page 2 dated after everything on page 1.
     const shop = purchases(200, {
       2: (doc) => {
@@ -128,13 +146,28 @@ describe("stopping early", () => {
     const walked = await walk("purchases", shop, { year: 2025 });
     expect(shop.asked.length).toBe(8);
     expect(walked.stoppedEarly).toBe(false);
+    expect(walked.rows.length).toBe(200);
   });
 
-  test("sales never stop early", async () => {
+  test("sales stop once a page holds nothing from the year", async () => {
     const shop = sales(200);
     const walked = await walk("sales", shop, { year: 2025 });
-    expect(shop.asked.length).toBe(8);
-    expect(walked.stoppedEarly).toBe(false);
+    expect(pages(shop)).toEqual([1, 5, 3, 2]);
+    expect(walked.stoppedEarly).toBe(true);
+  });
+
+  test("a sale received in the year but ordered before it is still found", async () => {
+    // Synthetic: a sale on page 3, ordered in 2024, received in 2025.
+    const shop = sales(200, {
+      3: (doc) => {
+        const span = [...doc.querySelectorAll("span")].find((s) => /^Received /.test(s.textContent));
+        span.textContent = "Received Jan 3, 2025";
+        return doc;
+      },
+    });
+    const walked = await walk("sales", shop, { year: 2025 });
+    expect(pages(shop)).toEqual([1, 5, 3, 2, 4]);
+    expect(walked.rows.filter((row) => CKB.yearOf(row, "sales") === 2025 && CKB.exported(row, "sales")).length).toBe(20);
   });
 
   test("every year reads every page", async () => {
