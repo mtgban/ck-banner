@@ -279,13 +279,13 @@ attributes, drops every script, event handler and Vue attribute, replaces each
 `_token` with `TOKEN`, replaces the address and tracking cells whole, renumbers
 every order and cart line id everywhere it appears (text, links, form actions,
 labels), replaces every amount with a synthetic one of the same shape and the
-list's size (its results line and pager) with a synthetic one, and rewrites
-every URL to a synthetic one on the same origin. Dates and statuses
-stay as printed. A cart keeps CK's markup and none of the account's items:
-each line is refilled with an item drawn at random (seeded) from a price
-list, at that list's price for the line's shape and condition, with line ids
-renumbered, every `_token` replaced, and the item count and Subtotal
-recomputed. The
+list's size (its results line and pager) with a synthetic one, moves every
+date to a synthetic one that keeps the page's order, and rewrites every URL
+to a synthetic one on the same origin. Statuses stay as printed. A cart keeps
+CK's markup and none of the account's items: each line is refilled with an
+item drawn at random (seeded) from a price list, at that list's price for the
+line's shape and condition, with line ids renumbered, every `_token`
+replaced, and the item count and Subtotal recomputed. The
 script checks its own output for an id, an address line or a link it should
 have removed, and writes nothing if it finds one. `tests/repo.test.js` scans every
 fixture for what a cut must never keep.

@@ -52,10 +52,12 @@ for (const kind of ["purchases", "sales"]) {
       expect(place.pages).toBe(Math.ceil(place.total / 25));
     });
 
-    test.skipIf(!SAVED[kind])("left none of its order ids in a fixture", () => {
-      const ids = CKB.readHistory(savedPage(SAVED[kind]), kind).map((row) => row.orderID);
-      const fixtures = readdirSync(new URL("./fixtures/", import.meta.url)).map(text).join("\n");
-      expect(ids.filter((id) => fixtures.includes(id))).toEqual([]);
+    test.skipIf(!SAVED[kind])("left none of its order ids or dates in a fixture", () => {
+      const rows = CKB.readHistory(savedPage(SAVED[kind]), kind);
+      const fixtures = readdirSync(new URL("./fixtures/", import.meta.url)).map(text).join("\n").replace(/\s+/g, " ");
+      expect(rows.map((row) => row.orderID).filter((id) => fixtures.includes(id))).toEqual([]);
+      const dates = rows.flatMap((row) => [row.orderDate, row.completedOn]).filter(Boolean);
+      expect(dates.filter((date) => fixtures.includes(date))).toEqual([]);
       expect(fixtures).not.toContain("of " + CKB.historyPlace(savedPage(SAVED[kind])).total + " results");
     });
   });
