@@ -187,14 +187,16 @@ globalThis.CKB = globalThis.CKB || {};
 
   // usableFile says whether a kept file may be handed out for the history
   // whose page 1 has this signature: this version and the same signature,
-  // and, for every year or this one, built less than a day before now.
+  // and, for every year or a year not yet over when the file was built,
+  // built less than a day before now. A year is over a day after its local
+  // turn, which is past it in Card Kingdom's time zone too.
   CKB.usableFile = function (entry, signature, year, now) {
     if (!entry || entry.v !== CKB.FILE_VERSION || entry.signature !== signature ||
         typeof entry.csv !== "string" || typeof entry.builtAt !== "number") {
       return false;
     }
     var age = now - entry.builtAt;
-    if (year === null || year >= new Date(now).getFullYear()) {
+    if (year === null || entry.builtAt < new Date(year + 1, 0, 2).getTime()) {
       return age >= 0 && age < CKB.FILE_TTL;
     }
     return true;
