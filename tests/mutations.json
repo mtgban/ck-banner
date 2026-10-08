@@ -415,8 +415,8 @@
   {
     "guard": "a stale list sends nothing",
     "file": "src/cartpage.js",
-    "find": "if (!CKB.fresh(list, Date.now())) {",
-    "replace": "if (false) {",
+    "find": "if (!CKB.fresh(list, Date.now())) {\n      swap(box,",
+    "replace": "if (false) {\n      swap(box,",
     "expectFailing": "a list that went stale since it was read sends nothing"
   },
   {
@@ -429,15 +429,15 @@
   {
     "guard": "a wrong quantity is put back",
     "file": "src/cartpage.js",
-    "find": "CKB.restoreQuantity(line, answer.lineID, line.qty).then(function (restored) {",
-    "replace": "Promise.resolve(true).then(function (restored) {",
+    "find": "\n      CKB.restoreQuantity(line, answer.lineID, line.qty).then(function (restored) {",
+    "replace": "\n      Promise.resolve(true).then(function (restored) {",
     "expectFailing": "another quantity is put back through the line's own form, then the page reloads"
   },
   {
     "guard": "a quantity not put back locks every update",
     "file": "src/cartpage.js",
-    "find": "        if (!restored) {",
-    "replace": "        if (false) {",
+    "find": "\n        if (!restored) {",
+    "replace": "\n        if (false) {",
     "expectFailing": "a quantity that cannot be put back is said, and locks every other update"
   },
   {
@@ -450,8 +450,8 @@
   {
     "guard": "the panel stays busy through a reload",
     "file": "src/cartpage.js",
-    "find": "      panel.release();\n      CKB.reload();",
-    "replace": "      panel.busy(false);\n      CKB.reload();",
+    "find": "    if (answer.outcome === \"repriced\") {\n      panel.release();",
+    "replace": "    if (answer.outcome === \"repriced\") {\n      panel.busy(false);",
     "expectFailing": "one click sends one request, for the line's quantity, then reloads"
   },
   {
@@ -460,6 +460,55 @@
     "find": "      release: function () {\n        window.removeEventListener(\"beforeunload\", hold);",
     "replace": "      release: function () {",
     "expectFailing": "one click sends one request, for the line's quantity, then reloads"
+  },
+  {
+    "guard": "Update all sits under Empty Cart",
+    "file": "src/cartpage.js",
+    "find": "slot.after(all);",
+    "replace": "document.body.appendChild(all);",
+    "expectFailing": "sits under Empty Cart, counting the lines it will update"
+  },
+  {
+    "guard": "Update all is paced",
+    "file": "src/cartpage.js",
+    "find": "CKB.after(i ? CKB.PACE : 0)",
+    "replace": "CKB.after(0)",
+    "expectFailing": "waits between requests, as a walk does"
+  },
+  {
+    "guard": "Update all sends nothing from a stale list",
+    "file": "src/cartpage.js",
+    "find": "if (!CKB.fresh(list, Date.now())) {\n      panel.fail(",
+    "replace": "if (false) {\n      panel.fail(",
+    "expectFailing": "sends nothing once the list has gone stale"
+  },
+  {
+    "guard": "Update all stops at the first refusal",
+    "file": "src/cartpage.js",
+    "find": "        } else {\n          refused(box, answer.message);\n        }",
+    "replace": "        } else {\n          send(lines, i + 1);\n        }",
+    "expectFailing": "stops at the first refusal and locks every update"
+  },
+  {
+    "guard": "Update all stops at a quantity it cannot put back",
+    "file": "src/cartpage.js",
+    "find": "\n            if (!restored) {",
+    "replace": "\n            if (false) {",
+    "expectFailing": "stops at a quantity it cannot put back"
+  },
+  {
+    "guard": "Escape stops Update all",
+    "file": "src/cartpage.js",
+    "find": "          run.stopped = true;\n",
+    "replace": "",
+    "expectFailing": "Escape stops it once the request in flight is answered"
+  },
+  {
+    "guard": "a cart Update all changed is reloaded",
+    "file": "src/cartpage.js",
+    "find": "    if (run.changed) {",
+    "replace": "    if (false) {",
+    "expectFailing": "updates every better line, top to bottom, then reloads"
   },
   {
     "guard": "a kept file is used only for the page 1 it was built from",

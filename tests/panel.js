@@ -192,6 +192,7 @@ export async function mountCart({ side = "sell", path, body, prices = pricelist(
   const reloads = [];
   if (window.CKB) {
     window.CKB.reload = () => reloads.push(Date.now());
+    window.CKB.PACE = 0;
   }
   const doc = window.document;
   const panel = doc.getElementById("ck-banner");
@@ -229,6 +230,7 @@ export async function mountCart({ side = "sell", path, body, prices = pricelist(
     word: () => at$(".ck-banner-word").textContent,
     tip: () => at$(".ck-banner-tip").textContent,
     button: () => at$(".ck-banner-go"),
+    all: () => doc.querySelector(".ck-banner-all"),
     busy: () => panel.classList.contains("ck-banner-busy"),
     failed: () => !at$(".ck-banner-mark").hidden && at$(".ck-banner-mark").classList.contains("ck-banner-failed"),
     titled: () => doc.querySelectorAll("#ck-banner [title], .ck-banner-line [title]").length,

@@ -453,3 +453,144 @@ describe("Update price", () => {
     expect(it.written.every((w) => w.method === "POST" && !/delete|empty|remove/i.test(w.url + w.body))).toBe(true);
   });
 });
+
+describe("Update all", () => {
+  const two = () => pricelist({ 206649: { price_buy: "28.50" }, 224590: { price_buy: "0.20" } });
+
+  // CK answers for the two better lines, each at the list's price, with
+  // changes[product] edited in.
+  const LINES = { 206649: { id: 5550001, price: "28.50" }, 224590: { id: 5550002, price: "0.20" } };
+  const answer = (product, changes = {}) => {
+    const line = LINES[product];
+    const item = { id: line.id, product_id: product, style: "NM", qty: 1, price: line.price, product: { price_buy: line.price }, ...changes };
+    return { ok: true, status: 200, json: () => Promise.resolve({ lineitems: [item] }) };
+  };
+  const ck = (changes = {}) => (url, options) => {
+    const product = Number(JSON.parse(options.body).product_id);
+    return Promise.resolve(answer(product, changes[product]));
+  };
+
+  async function marked(options) {
+    const it = await mountCart({ prices: two(), ...options });
+    it.button().click();
+    await it.idle();
+    return it;
+  }
+
+  test("sits under Empty Cart, counting the lines it will update", async () => {
+    const it = await marked();
+    expect(!!it.all().previousElementSibling.querySelector('form[action$="/sellcart/empty_cart"]')).toBe(true);
+    expect(it.all().querySelector("button").className).toBe("btn btn-default ck-banner-update-all");
+    expect(it.all().textContent).toBe("Update 2 prices");
+  });
+
+  test("is not offered with no line to update, nor on the buy cart", async () => {
+    const same = await mountCart();
+    same.button().click();
+    await same.idle();
+    expect(!!same.all()).toBe(false);
+    const buy = await mountCart({ side: "buy", prices: pricelist({ 10202: { condition_values: { vg_price: "1.50" } } }) });
+    buy.button().click();
+    await buy.idle();
+    expect(!!buy.all()).toBe(false);
+  });
+
+  test("updates every better line, top to bottom, then reloads", async () => {
+    const it = await marked({ writes: ck() });
+    it.all().querySelector("button").click();
+    await it.idle();
+    expect(it.written.map((w) => JSON.parse(w.body).product_id)).toEqual(["206649", "224590"]);
+    expect(it.mark(206649)).toMatchObject({ badge: "Updated", tone: "good" });
+    expect(it.mark(224590).tip).toBe("Card Kingdom now pays $0.20 each.");
+    expect(it.reloads.length).toBe(1);
+    expect(it.button().disabled).toBe(true);
+    expect(it.leaving()).toBe(false);
+  });
+
+  test("sends one request at a time, and holds the page while it runs", async () => {
+    let release;
+    const answers = ck();
+    const it = await marked({ writes: (url, options) => (release ? answers(url, options) : new Promise((r) => (release = () => r(answers(url, options))))) });
+    it.all().querySelector("button").click();
+    await it.settle();
+    expect(it.written.length).toBe(1);
+    expect(it.word()).toBe("updating 1 of 2");
+    expect(it.update(224590).disabled).toBe(true);
+    expect(it.leaving()).toBe(true);
+    release();
+    await it.idle();
+    expect(it.written.length).toBe(2);
+  });
+
+  test("waits between requests, as a walk does", async () => {
+    const it = await marked({ writes: ck() });
+    it.window.CKB.PACE = 300;
+    it.all().querySelector("button").click();
+    await it.settle(150);
+    expect(it.written.length).toBe(1);
+    await it.settle(400);
+    expect(it.written.length).toBe(2);
+  });
+
+  test("stops at the first refusal and locks every update", async () => {
+    const it = await marked({ writes: () => Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) }) });
+    it.all().querySelector("button").click();
+    await it.idle();
+    expect(it.written.length).toBe(1);
+    expect(it.mark(206649)).toMatchObject({ badge: "Not updated", tone: "bad" });
+    expect(it.failed()).toBe(true);
+    expect(it.update(224590).disabled).toBe(true);
+    expect(it.all().querySelector("button").disabled).toBe(true);
+    expect(it.reloads).toEqual([]);
+  });
+
+  test("stops at a quantity it cannot put back", async () => {
+    const it = await marked({
+      writes: (url, options) => (url.endsWith("/api/sellcart/add") ? ck({ 206649: { qty: 2 } })(url, options) : Promise.resolve({ ok: false, status: 419 })),
+    });
+    it.all().querySelector("button").click();
+    await it.idle();
+    expect(it.written.length).toBe(2);
+    expect(it.mark(206649)).toMatchObject({ badge: "Not updated", tone: "bad" });
+    expect(it.mark(206649).tip).toBe(
+      "Card Kingdom set this line to 2, and putting back 1 failed. Reload the page to see what Card Kingdom holds."
+    );
+    expect(it.update(224590).disabled).toBe(true);
+    expect(it.reloads).toEqual([]);
+  });
+
+  test("Escape stops it once the request in flight is answered", async () => {
+    let release;
+    const it = await marked({ writes: (url, options) => new Promise((r) => (release = () => r(ck()(url, options)))) });
+    it.all().querySelector("button").click();
+    await it.settle();
+    it.escape();
+    release();
+    await it.idle();
+    expect(it.written.length).toBe(1);
+    expect(it.mark(206649).badge).toBe("Updated");
+    expect(it.reloads.length).toBe(1);
+  });
+
+  test("sends nothing once the list has gone stale", async () => {
+    // Kept, and fresh, until a moment after the page marked the cart.
+    const it = await mountCart({ kept: CKB.reducePrices(two(), Date.now() - CKB.LIST_TTL + 150), writes: ck() });
+    await it.settle(250);
+    it.all().querySelector("button").click();
+    await it.settle();
+    expect(it.written).toEqual([]);
+    expect(it.failed()).toBe(true);
+    expect(it.tip()).toBe("The price list is over an hour old; load prices again before updating.");
+  });
+
+  test("prices CK kept leave the page as it is", async () => {
+    const it = await marked({ writes: ck({ 206649: { price: "27.00" }, 224590: { price: "0.10" } }) });
+    it.all().querySelector("button").click();
+    await it.idle();
+    expect(it.written.length).toBe(2);
+    expect(it.marks().filter((m) => m.badge === "Price kept").length).toBe(2);
+    expect(it.reloads).toEqual([]);
+    expect(it.busy()).toBe(false);
+    expect(!!it.all()).toBe(false);
+  });
+});

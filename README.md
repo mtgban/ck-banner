@@ -5,8 +5,9 @@
 - **On the sell cart** (`/sellcart`) it checks every line against Card
   Kingdom's public price list and says, next to the line's *Save for Later*,
   whether the list pays more or less than the cart. Where the list pays more,
-  *Update price* asks Card Kingdom to reprice that line. The list is read once
-  on a click and kept for an hour.
+  *Update price* asks Card Kingdom to reprice that line, and *Update all*,
+  under *Empty Cart*, does so for every such line in turn. The list is read
+  once on a click and kept for an hour.
 - **On the buy cart** (`/cart`) it does the same the other way round: each line
   is checked against the list's price for its condition, and a line the list
   now sells for less is marked as a price drop. Both carts work signed out.
@@ -26,7 +27,8 @@ None. The price list allows any site to read it, and everything else the
 extension reads or sends goes to the Card Kingdom page it is running on, as
 the signed-in user. On a click it reads the price list (no cookies sent); on
 the history pages it reads the history's own pages one at a time; *Update
-price* sends one request per click. Nothing leaves your browser for anywhere
+price* sends one request per click, and *Update all* one per line, one at a
+time. Nothing leaves your browser for anywhere
 else.
 
 ## Installing it
