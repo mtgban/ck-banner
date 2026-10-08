@@ -92,7 +92,7 @@ describe("checking prices on the sell cart", () => {
     const it = await mountCart();
     it.button().click();
     expect(it.busy()).toBe(true);
-    expect(it.word()).toBe("fetching prices");
+    expect(it.word()).toBe("fetching API");
     expect(it.button().disabled).toBe(true);
     await it.idle();
     expect(it.asked.length).toBe(1);

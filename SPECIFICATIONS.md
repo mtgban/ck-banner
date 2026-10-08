@@ -381,7 +381,7 @@ On the carts the row is *Load prices*, then *Refresh* once the cart is
 marked, and *CSV* (section 11), greyed out until a list is in hand; the list is read only on that click, and *Refresh* is greyed
 out while the list in hand is fresh, since reading it again would change
 nothing, until the hour runs out. While it reads the heading says `fetching
-prices`. Done, the heading counts the lines the list now favours in the same
+API`. Done, the heading counts the lines the list now favours in the same
 word on both carts (`3 better`), or says `ready`, beside a tick. While it
 counts any, the count is a control: each click, or Enter, scrolls to the
 next of those lines, top to bottom and round again, and focuses its *Update

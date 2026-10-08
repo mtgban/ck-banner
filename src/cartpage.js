@@ -506,7 +506,7 @@
     reading = controller;
     panel.clear();
     panel.jump(null);
-    panel.word("fetching prices");
+    panel.word("fetching API");
     panel.busy(true);
     CKB.fetchList({ signal: controller.signal })
       .then(function (fetched) {
