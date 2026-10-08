@@ -80,9 +80,9 @@ describe("checking prices on the sell cart", () => {
     it.button().click();
     await it.idle();
     expect(it.mark(206649)).toMatchObject({ verdict: "better", badge: "Update price" });
-    expect(it.mark(206649).tip).toBe("List pays $28.50, cart has $27.00 (+$1.50 each).");
-    expect(it.mark(224590)).toMatchObject({ verdict: "worse", badge: "List is lower", tone: "warn" });
-    expect(it.mark(224590).tip).toBe("List pays $0.05, cart has $0.10 (-$0.05 each).");
+    expect(it.mark(206649).tip).toBe("Buylist currently pays $28.50.");
+    expect(it.mark(224590)).toMatchObject({ verdict: "worse", badge: "Keep price", tone: "warn" });
+    expect(it.mark(224590).tip).toBe("Buylist currently pays $0.05.");
     expect(it.mark(50270)).toMatchObject({ verdict: "wants0", badge: "Wants 0", tone: "warn" });
     expect(it.mark(50270).tip).toBe("List wants none, at $0.90.");
     expect(it.mark(195917)).toMatchObject({ verdict: "unlisted", badge: "?", tone: "quiet" });
@@ -145,7 +145,7 @@ describe("checking prices on the buy cart", () => {
     await it.idle();
     expect(it.mark(10202)).toMatchObject({ verdict: "dropped", badge: "Price dropped", tone: "good" });
     expect(it.mark(10202).tip).toBe("List asks $1.50 in VG, cart has $1.74 (-$0.24 each).");
-    expect(it.mark(130810)).toMatchObject({ verdict: "raised", badge: "List is higher", tone: "warn" });
+    expect(it.mark(130810)).toMatchObject({ verdict: "raised", badge: "Price went up", tone: "warn" });
     expect(it.mark(217590)).toMatchObject({ verdict: "nostock", badge: "None in stock" });
     expect(it.heading()).toBe("CK BANner - 1 better\u2713");
     expect(it.tip()).toBe("1 price is better, 1 worse, 1 out of stock, 3 the same\nPrice list of 2026-09-17 04:04");
