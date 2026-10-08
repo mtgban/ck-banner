@@ -16,7 +16,8 @@ row of buttons):
 
 - **Sell cart** (`/sellcart`): compares every cart line with CK's price list and
   marks each line beside its *Save for Later* link. Where the list pays more,
-  *Update price* asks CK to reprice the line.
+  *Update price* asks CK to reprice the line, and *Update all* does so for
+  every such line in turn.
 - **Buy cart** (`/cart`): the same comparison the other way round, against the
   list's retail price for the line's condition. Where the list now charges
   less than the cart, a price reduction, the line is marked.
@@ -199,6 +200,18 @@ ends in a reload keeps them disabled until the page goes, and the reload
 does not ask. Never: a delete, a
 retry, a second request in flight, a request for a line whose verdict is not
 *better*, or a request built from a control that no longer matches its line.
+
+**Update all** sits under the sidebar's *Empty Cart*, in CK's own button
+style, while any line offers *Update price*, and counts them ("Update 3
+prices"). One click sends the request above for each of those lines, top to
+bottom, one at a time and with the walk's pause (section 10) before each
+after the first. The list must be fresh when it starts. Each answer is read
+as in the table: a repriced line reads green "Updated", a kept one "Price
+kept", one whose quantity was put back amber "Updated". The first line that
+is not updated stops the run and locks every update, as in the table's last
+row. Escape stops it once the request in flight is answered. If CK changed
+the cart, the page reloads at the end, the panel busy until it does; if CK
+kept every price, the page stays as it is.
 
 The buy cart has no such button; it marks a reduction and leaves the cart to
 its owner. go-mtgban's client has the buy side's twin of the request,

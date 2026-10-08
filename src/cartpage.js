@@ -4,7 +4,8 @@
 // The list is read only on a click and kept for an hour (store.js); a cart
 // opened while a kept list is fresh is marked at once, with no request. The
 // one thing that changes a cart is Update price on a better sell line
-// (update.js), one line per click, CK's answer deciding what happened.
+// (update.js), CK's answer deciding what happened: one line per click, or
+// every better line in turn from Update all, under Empty Cart.
 
 (function (CKB) {
   "use strict";
@@ -51,6 +52,10 @@
   // wanted is the lines the last marking gave a mark, by line id.
   var wanted = {};
   var expiry = null;
+  // all is the Update all control the last marking placed, if any; run is
+  // an Update all under way.
+  var all = null;
+  var run = null;
 
   CKB.reload = function () {
     location.reload();
@@ -153,9 +158,9 @@
   }
 
   function updates(disabled) {
-    var all = document.querySelectorAll(".ck-banner-update");
-    for (var i = 0; i < all.length; i++) {
-      all[i].disabled = disabled || locked;
+    var controls = document.querySelectorAll(".ck-banner-update, .ck-banner-update-all");
+    for (var i = 0; i < controls.length; i++) {
+      controls[i].disabled = disabled || locked;
     }
   }
 
@@ -216,22 +221,139 @@
 
     writing = false;
     panel.busy(false);
+    kept(box, answer);
+    updates(false);
+    placeAll();
+    lastSummary();
+  }
+
+  function kept(box, answer) {
     swap(box, "Price kept", "warn", "Card Kingdom kept " + each(answer.price) + ". Remove the card and add it again to take " +
       each(answer.buy) + ".");
-    updates(false);
-    lastSummary();
   }
 
   // refused marks the line "Not updated" and sends nothing more until the
   // page is reloaded, since the cart may no longer be what the page shows.
   function refused(box, message) {
     writing = false;
+    run = null;
     panel.busy(false);
     locked = true;
     updates(true);
     swap(box, "Not updated", "bad", message + ". Reload the page to see what Card Kingdom holds.");
     lastSummary();
     panel.fail(message + ". Reload the page to see what Card Kingdom holds; no other update will be sent until then.");
+  }
+
+  // updateAll sends Update price's request for every line the list pays
+  // more for, top to bottom, one at a time and paced, and stops at the first
+  // that fails. Escape stops it once the request in flight is answered. A
+  // cart CK changed is reloaded at the end.
+  function updateAll() {
+    if (writing || locked || reading) {
+      return;
+    }
+    if (!CKB.fresh(list, Date.now())) {
+      panel.fail("The price list is over an hour old; load prices again before updating.");
+      return;
+    }
+    var lines = CKB.readCart(document, location.href, side).filter(function (l) {
+      return CKB.compare(l, list, side).verdict === "better" &&
+        document.querySelector('.ck-banner-line[data-line="' + l.lineID + '"] .ck-banner-update');
+    });
+    if (!lines.length) {
+      return;
+    }
+    writing = true;
+    run = { stopped: false, changed: false };
+    updates(true);
+    all.querySelector("button").textContent = "Updating";
+    panel.clear();
+    panel.busy(true);
+    send(lines, 0);
+  }
+
+  function send(lines, i) {
+    if (i >= lines.length || run.stopped) {
+      ran();
+      return;
+    }
+    var line = lines[i];
+    var box = document.querySelector('.ck-banner-line[data-line="' + line.lineID + '"]');
+    panel.word("updating " + (i + 1) + " of " + lines.length);
+    CKB.after(i ? CKB.PACE : 0)
+      .then(function () {
+        if (run.stopped) {
+          return null;
+        }
+        box.querySelector(".ck-banner-update").textContent = "Updating";
+        return CKB.updatePrice(line);
+      })
+      .then(function (answer) {
+        if (!answer) {
+          ran();
+        } else if (answer.outcome === "repriced") {
+          run.changed = true;
+          swap(box, "Updated", "good", "Card Kingdom now pays " + each(answer.buy) + ".");
+          send(lines, i + 1);
+        } else if (answer.outcome === "kept") {
+          kept(box, answer);
+          send(lines, i + 1);
+        } else if (answer.outcome === "quantity") {
+          run.changed = true;
+          CKB.restoreQuantity(line, answer.lineID, line.qty).then(function (restored) {
+            if (!restored) {
+              refused(box, "Card Kingdom set this line to " + answer.qty + ", and putting back " + line.qty + " failed");
+              return;
+            }
+            swap(box, "Updated", "warn", "Card Kingdom set this line to " + answer.qty + "; it was put back to " + line.qty + ".");
+            send(lines, i + 1);
+          });
+        } else {
+          refused(box, answer.message);
+        }
+      });
+  }
+
+  // ran ends an Update all that was not refused: with a reload when CK
+  // changed the cart, so it shows CK's own figures, or else as it stands.
+  function ran() {
+    if (run.changed) {
+      panel.release();
+      CKB.reload();
+      return;
+    }
+    writing = false;
+    run = null;
+    panel.busy(false);
+    updates(false);
+    placeAll();
+    lastSummary();
+  }
+
+  // placeAll puts Update all under the sidebar's Empty Cart while any line
+  // offers Update price, in CK's own button style, and takes it away when
+  // none does.
+  function placeAll() {
+    if (all) {
+      all.remove();
+      all = null;
+    }
+    var n = document.querySelectorAll(".ck-banner-update").length;
+    var empty = document.querySelector('form[action$="/sellcart/empty_cart"]');
+    var slot = empty && empty.closest(".cart-button-padding");
+    if (!n || !slot) {
+      return;
+    }
+    all = document.createElement("div");
+    all.className = "cart-button-padding ck-banner-all";
+    all.innerHTML = '<div class="btn-group-justified"><div class="btn-group">' +
+      '<button type="button" class="btn btn-default ck-banner-update-all"></button></div></div>';
+    var control = all.querySelector("button");
+    control.textContent = "Update " + n + (n === 1 ? " price" : " prices");
+    control.disabled = writing || locked;
+    control.addEventListener("click", updateAll);
+    slot.after(all);
   }
 
   function signature(lines) {
@@ -290,6 +412,7 @@
       }
     });
     shown = signature(lines);
+    placeAll();
     lastSummary = function () {
       summary(counts);
     };
@@ -299,7 +422,7 @@
 
   // marked says whether every line the last marking marked still has it.
   function marked(lines) {
-    return lines.every(function (l) {
+    return (!all || document.contains(all)) && lines.every(function (l) {
       return !wanted[l.lineID] || !l.host || l.host.querySelector('.ck-banner-line[data-line="' + l.lineID + '"]');
     });
   }
@@ -409,6 +532,9 @@
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape") {
         cancel();
+        if (run) {
+          run.stopped = true;
+        }
       }
     });
 
