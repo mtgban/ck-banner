@@ -71,6 +71,16 @@
   // seen is what CK's answers to Update price said it pays now, by product
   // id, against the list in hand (store.js keeps it).
   var seen = {};
+  // checked is when CK last said which list it serves, and newer whether
+  // that is a newer one than the list in hand; peeking is a check running.
+  var checked = 0;
+  var newer = false;
+  var peeking = false;
+
+  // A list checked with CK this recently is taken as its latest, on this
+  // page or the next. Cloudflare holds the list about ten minutes, so a
+  // check sooner than this could not see a newer one anyway.
+  CKB.CHECK_GAP = 300000;
   var jumped = -1;
 
   CKB.reload = function () {
@@ -206,13 +216,77 @@
   // once the line is still that line, still better, and the list still
   // fresh; otherwise it asks for a new check and sends nothing.
   function update(lineID, productID) {
-    if (writing || locked || reading) {
+    if (writing || locked || reading || peeking) {
       return;
     }
+    latest(function () {
+      updateLine(lineID, productID);
+    });
+  }
+
+  // noted keeps what CK last said about the list in hand, for the next page.
+  function noted(createdAt) {
+    store
+      .then(function (s) {
+        return CKB.keepCheck(s, createdAt, checked, newer);
+      })
+      .catch(function () {});
+  }
+
+  // latest calls then once the list in hand is the one CK serves now: at
+  // once when CK said so in the last few minutes, or after peeking at the date
+  // of the list it serves, and after reading that list first when it is
+  // newer. A peek that fails tells nothing, and then goes ahead, CK's own
+  // answer to Update price still deciding what happened.
+  function latest(then) {
+    if (!newer && Date.now() - checked < CKB.CHECK_GAP) {
+      then();
+      return;
+    }
+    var go = function () {
+      if (newer) {
+        check(then);
+      } else {
+        then();
+      }
+    };
+    if (newer) {
+      go();
+      return;
+    }
+    peeking = true;
+    updates(true);
+    panel.word("checking API");
+    panel.busy(true);
+    CKB.peekList().then(
+      function (createdAt) {
+        peeking = false;
+        panel.busy(false);
+        checked = Date.now();
+        newer = createdAt !== list.createdAt;
+        noted(list.createdAt);
+        updates(false);
+        go();
+      },
+      function () {
+        peeking = false;
+        panel.busy(false);
+        updates(false);
+        then();
+      }
+    );
+  }
+
+  function updateLine(lineID, productID) {
     var line = CKB.readCart(document, location.href, side).filter(function (l) {
       return l.lineID === lineID && l.productID === productID;
     })[0];
     var box = document.querySelector('.ck-banner-line[data-line="' + lineID + '"]');
+    // A newer list read first may leave the line nothing to update.
+    if (!box || !box.querySelector(".ck-banner-update")) {
+      lastSummary();
+      return;
+    }
     if (!CKB.fresh(list, Date.now())) {
       swap(box, "Check again", "warn", "The price list is over an hour old; check prices again before updating.");
       return;
@@ -326,9 +400,13 @@
   // that fails. Escape stops it once the request in flight is answered. A
   // cart CK changed is reloaded at the end.
   function updateAll() {
-    if (writing || locked || reading) {
+    if (writing || locked || reading || peeking) {
       return;
     }
+    latest(updateEvery);
+  }
+
+  function updateEvery() {
     if (!CKB.fresh(list, Date.now())) {
       panel.fail("The price list is over an hour old; load prices again before updating.");
       return;
@@ -343,6 +421,7 @@
       return true;
     });
     if (!lines.length) {
+      lastSummary();
       return;
     }
     writing = true;
@@ -499,6 +578,9 @@
     if (list.skipped > 0) {
       built += " (" + list.skipped + (list.skipped === 1 ? " row" : " rows") + " unreadable)";
     }
+    if (newer) {
+      built += "; a newer one is out";
+    }
     panel.recap(said.join(", ") + "\n" + built);
   }
 
@@ -507,7 +589,7 @@
   // A marked cart has a list in hand, so CSV is ready.
   function refreshable() {
     var left = list ? list.fetchedAt + CKB.LIST_TTL - Date.now() : 0;
-    button.disabled = left > 0;
+    button.disabled = left > 0 && !newer;
     csv.disabled = false;
     clearTimeout(expiry);
     if (left > 0) {
@@ -562,7 +644,9 @@
     CKB.download(CKB.cartCSV(CKB.readCart(document, location.href, side), list), "ck-" + side + "-cart.csv");
   }
 
-  function check() {
+  // check reads the list and marks the cart with it, and then, once the
+  // cart is marked, calls then when given.
+  function check(then) {
     if (writing) {
       return;
     }
@@ -583,7 +667,13 @@
         return store.then(function (s) {
           return CKB.keptSeen(s, fetched.createdAt).then(function (prices) {
             seen = prices;
+            checked = Date.now();
+            newer = false;
+            noted(fetched.createdAt);
             annotate();
+            if (typeof then === "function") {
+              then();
+            }
             return CKB.keepList(s, fetched).catch(function () {});
           });
         });
@@ -645,7 +735,9 @@
     button.type = "button";
     button.className = "ck-banner-go";
     button.textContent = "Load prices";
-    button.addEventListener("click", check);
+    button.addEventListener("click", function () {
+      check();
+    });
     panel.actions.appendChild(button);
     csv = document.createElement("button");
     csv.type = "button";
@@ -664,11 +756,30 @@
             return null;
           }
           return CKB.keptSeen(s, kept.createdAt).then(function (prices) {
-            if (!list && !reading) {
-              list = kept;
-              seen = prices;
-              annotate();
+            if (list || reading) {
+              return null;
             }
+            list = kept;
+            seen = prices;
+            annotate();
+            // Marked at once; CK then says whether it has a newer list,
+            // unless it said so a few minutes ago.
+            return CKB.keptCheck(s, kept.createdAt).then(function (check) {
+              if (check && Date.now() - check.at < CKB.CHECK_GAP) {
+                checked = check.at;
+                newer = check.newer;
+                lastSummary();
+                return null;
+              }
+              return CKB.peekList().then(function (createdAt) {
+                if (list === kept && !reading) {
+                  checked = Date.now();
+                  newer = createdAt !== kept.createdAt;
+                  noted(kept.createdAt);
+                  lastSummary();
+                }
+              });
+            });
           });
         });
       })

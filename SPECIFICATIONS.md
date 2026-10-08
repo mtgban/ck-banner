@@ -131,6 +131,21 @@ and marks nothing. An entry of the wrong shape or schema version counts as
 missing. Where IndexedDB is unavailable (some private windows), the list is
 held for the page's life and the tooltip says so.
 
+CK rebuilds its list about hourly (`created_at` 11:08, then 12:08, on
+2026-10-08), so a list kept for an hour can be behind CK's. A cart opened
+with a kept list is marked from it at once, and then peeks: one request
+reads the body's first bytes, which open with `created_at`, and cancels the
+rest, a few kilobytes of the ten megabytes the whole list takes. When CK
+serves a newer list, *Refresh* comes back and the tooltip says "a newer one
+is out". What a peek found is kept beside the list, and a list checked with
+CK in the last five minutes, on this page or the one before, is not checked
+again: Cloudflare holds the list about ten minutes, so a sooner check could
+not see a newer one, and CK limits how often one address may ask (it
+answered 429 after about a dozen downloads and ten header requests in forty
+minutes on 2026-10-08), which the panel says plainly. The `Last-Modified` header is no guide: it is when Cloudflare last
+fetched the list, about every ten minutes (19:09:40, then 19:20:04 GMT, for
+the same `created_at` 12:08:09).
+
 ## 6. Verdicts
 
 First match wins:
@@ -217,6 +232,13 @@ this page and the next: a line CK kept stays "Price kept", and a line
 already at CK's price is "Price is current", rather than offering *Update
 price* again. A newer list carries CK's prices itself, so reading one drops
 what was kept.
+
+Before *Update price* or *Update all* sends anything, the list in hand must
+be the one CK serves: a list checked with CK in the last five minutes is
+taken as such; otherwise a peek (section 5) checks it while the heading says
+`checking API`. A newer list is read first and the cart marked again, and
+the update goes on only for the lines still *better*. A peek that fails
+tells nothing, and the update goes ahead, CK's answer still deciding.
 
 While a request runs, every *Update price* and *Refresh* is disabled, the
 page asks before it is left, and Escape does not stop it. An update that
@@ -390,10 +412,12 @@ the year changes. At these addresses a page without the history table (a
 sign-in page) gets no panel.
 
 On the carts the row is *Load prices*, then *Refresh* once the cart is
-marked, and *CSV* (section 11), greyed out until a list is in hand; the list is read only on that click, and *Refresh* is greyed
-out while the list in hand is fresh, since reading it again would change
-nothing, until the hour runs out. While it reads the heading says `fetching
-API`. Done, the heading counts the lines the list now favours in the same
+marked, and *CSV* (section 11), greyed out until a list is in hand. The
+whole list is read only on that click, or before an update when CK has a
+newer one (section 7), and *Refresh* is greyed out while the list in hand is
+fresh, since reading it again would change nothing, until the hour runs out
+or CK serves a newer one (section 5). While it reads the heading says
+`fetching API`. Done, the heading counts the lines the list now favours in the same
 word on both carts (`3 better`), or says `ready`, beside a tick. While it
 counts any, the count is a control: each click, or Enter, scrolls to the
 next of those lines, top to bottom and round again, and focuses its *Update
@@ -458,8 +482,8 @@ that day, which CI never has.
 - Where the line's quantity form lands once its redirect is followed. Until
   then any 200 counts as the quantity put back; once known, a landing
   elsewhere (a sign-in page) can be told apart and locked as a failure.
-- How often the price list is rebuilt (`created_at`), and so how often it is
-  older than the cart.
+- Exactly when the price list is rebuilt: about hourly, at 11:08 and 12:08
+  US Pacific time on 2026-10-08 (section 5).
 - What the history pages' 25 / 50 / 100 page-size choice does; the walk uses
   25 until that is known.
 - Whether *Update price* works on a signed-out cart. It sends the product id

@@ -68,7 +68,9 @@ describe("the cart's CSV", () => {
     expect(it.csv().disabled).toBe(false);
     it.csv().click();
     expect((await it.file()).text.split("\n")[1].startsWith("57ffb8ad-d8b4-4764-bbb0-ca4106080a90,")).toBe(true);
-    expect(it.asked).toEqual([]);
+    // The page's one request is its peek at the list's date.
+    await it.idle();
+    expect(it.asked.length).toBe(1);
   });
 
   test("stays greyed when the list cannot be read", async () => {
@@ -199,11 +201,33 @@ describe("checking prices on the buy cart", () => {
 });
 
 describe("the hour", () => {
-  test("a fresh kept list marks the cart on load, with no request", async () => {
+  test("a fresh kept list marks the cart on load, then only peeks at the list's date", async () => {
     const it = await mountCart({ kept: CKB.reducePrices(moved(), Date.now()) });
-    expect(it.asked).toEqual([]);
     expect(it.mark(206649).verdict).toBe("better");
     expect(it.button().textContent).toBe("Refresh");
+    await it.idle();
+    expect(it.asked.length).toBe(1);
+    expect(it.button().disabled).toBe(true);
+    expect(it.tip().endsWith("Price list of 2026-09-17 04:04")).toBe(true);
+  });
+
+  test("a page opened again soon after a check does not check again", async () => {
+    const idb = new IDBFactory();
+    const first = await mountCart({ idb, kept: CKB.reducePrices(moved(), Date.now()) });
+    await first.idle();
+    expect(first.asked.length).toBe(1);
+    const next = await mountCart({ idb });
+    await next.idle();
+    expect(next.asked).toEqual([]);
+  });
+
+  test("a kept list CK has a newer one of brings Refresh back, and says so", async () => {
+    const newer = moved();
+    newer.meta.created_at = "2026-09-17 05:04:00";
+    const it = await mountCart({ kept: CKB.reducePrices(moved(), Date.now()), prices: newer });
+    await it.idle();
+    expect(it.button().disabled).toBe(false);
+    expect(it.tip().endsWith("Price list of 2026-09-17 04:04; a newer one is out")).toBe(true);
   });
 
   test("a stale kept list marks nothing and asks for nothing", async () => {
@@ -219,6 +243,8 @@ describe("the hour", () => {
     await first.idle();
     expect(await first.kept()).not.toBeNull();
     const next = await mountCart({ side: "buy", idb: first.idb });
+    await next.idle();
+    // Read moments ago, it is not checked with CK again.
     expect(next.asked).toEqual([]);
     expect(next.heading()).toBe("CK BANner - ready\u2713");
     expect(next.button().textContent).toBe("Refresh");
@@ -817,5 +843,61 @@ describe("a price list out of date", () => {
     expect(lowered.written.length).toBe(1);
     expect(lowered.mark(206649).badge).toBe("Price lowered");
     expect(lowered.reloads).toEqual([]);
+  });
+});
+
+describe("checking the list with CK before updating", () => {
+  const answer = {
+    ok: true,
+    status: 200,
+    json: () =>
+      Promise.resolve({
+        lineitems: [{ id: 5550001, product_id: 206649, style: "NM", qty: 1, price: "28.50", product: { price_buy: "28.50" } }],
+      }),
+  };
+  const listed = () => pricelist({ 206649: { price_buy: "28.50" } });
+
+  test("a newer list is read first, and a line no longer better sends nothing", async () => {
+    // The kept list pays $28.50; CK's newer one pays the $27.00 the cart has.
+    const newer = pricelist();
+    newer.meta.created_at = "2026-09-17 05:04:00";
+    const it = await mountCart({ kept: CKB.reducePrices(listed(), Date.now()), prices: newer, writes: () => Promise.resolve(answer) });
+    await it.idle();
+    it.update(206649).click();
+    await it.idle();
+    expect(it.asked.length).toBe(2);
+    expect(it.written).toEqual([]);
+    expect(!!it.update(206649)).toBe(false);
+    expect(it.tip().endsWith("Price list of 2026-09-17 05:04")).toBe(true);
+  });
+
+  test("a list read a while ago is checked before sending", async () => {
+    const it = await mountCart({ prices: listed(), writes: () => Promise.resolve(answer) });
+    it.button().click();
+    await it.idle();
+    it.window.CKB.CHECK_GAP = 0;
+    it.update(206649).click();
+    await it.idle();
+    expect(it.asked.length).toBe(2);
+    expect(it.written.length).toBe(1);
+  });
+
+  test("a list just read is not checked again", async () => {
+    const it = await mountCart({ prices: listed(), writes: () => Promise.resolve(answer) });
+    it.button().click();
+    await it.idle();
+    it.update(206649).click();
+    await it.idle();
+    expect([it.asked.length, it.written.length]).toEqual([1, 1]);
+  });
+
+  test("Update all reads a newer list first", async () => {
+    const newer = pricelist();
+    newer.meta.created_at = "2026-09-17 05:04:00";
+    const it = await mountCart({ kept: CKB.reducePrices(listed(), Date.now()), prices: newer, writes: () => Promise.resolve(answer) });
+    await it.idle();
+    it.all().querySelector("button").click();
+    await it.idle();
+    expect([it.asked.length, it.written.length]).toEqual([2, 0]);
   });
 });

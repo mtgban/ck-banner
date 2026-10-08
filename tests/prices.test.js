@@ -147,6 +147,27 @@ describe("fetching the list", () => {
   test("a refusal says what it was", async () => {
     answer((resolve) => resolve({ ok: false, status: 503, json: () => Promise.resolve({}) }));
     await expect(CKB.fetchList()).rejects.toThrow("Card Kingdom's price list answered 503");
+    answer((resolve) => resolve({ ok: false, status: 429, json: () => Promise.resolve({}) }));
+    await expect(CKB.fetchList()).rejects.toThrow(CKB.LIST_LIMITED);
+  });
+
+  test("a peek asks the same way and reads only the list's date", async () => {
+    // A body far longer than a peek reads, whose date opens it.
+    const text = JSON.stringify(body()) + " ".repeat(1 << 20);
+    let pulled = 0;
+    const stream = new ReadableStream({
+      pull(c) {
+        pulled += 1024;
+        c.enqueue(new TextEncoder().encode(text.slice(pulled - 1024, pulled)));
+        if (pulled >= text.length) {
+          c.close();
+        }
+      },
+    });
+    const asked = answer((resolve) => resolve(new Response(stream, { status: 200 })));
+    expect(await CKB.peekList()).toBe("2026-09-17 04:04:33");
+    expect([asked[0].options.credentials, "headers" in asked[0].options]).toEqual(["omit", false]);
+    expect(pulled).toBeLessThanOrEqual(8192);
   });
 
   test("a body that is not JSON is unreadable", async () => {

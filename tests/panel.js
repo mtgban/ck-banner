@@ -181,7 +181,8 @@ export async function mountCart({ side = "sell", path, body, prices = pricelist(
       if (respond) {
         respond(resolve, reject);
       } else {
-        resolve({ ok: true, status: 200, json: () => Promise.resolve(prices) });
+        // A real body, so a peek can read its first bytes alone.
+        resolve(new Response(JSON.stringify(prices), { status: 200 }));
       }
     });
   };

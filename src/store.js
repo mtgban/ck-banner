@@ -14,6 +14,7 @@ globalThis.CKB = globalThis.CKB || {};
   var STORE = "cache";
   var LIST = "pricelist";
   var SEEN = "seen";
+  var CHECKED = "checked";
 
   // TTL is how long a list is fresh. At exactly an hour it is stale.
   CKB.LIST_TTL = 3600000;
@@ -153,5 +154,22 @@ globalThis.CKB = globalThis.CKB || {};
 
   CKB.keepSeen = function (store, createdAt, prices) {
     return store.put(SEEN, { createdAt: createdAt, prices: prices });
+  };
+
+  // keptCheck is when CK last said which list it serves, at, and whether it
+  // was newer than the one built at createdAt; null for any other list.
+  CKB.keptCheck = function (store, createdAt) {
+    return store.get(CHECKED).then(
+      function (check) {
+        return check && check.createdAt === createdAt && typeof check.at === "number" ? check : null;
+      },
+      function () {
+        return null;
+      }
+    );
+  };
+
+  CKB.keepCheck = function (store, createdAt, at, newer) {
+    return store.put(CHECKED, { createdAt: createdAt, at: at, newer: newer });
   };
 })(globalThis.CKB);
