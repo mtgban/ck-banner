@@ -127,3 +127,55 @@
   border-color: #f3b4b4;
   color: #a12626;
 }
+
+/* Update all, under the sidebar's Empty Cart, is CK's own button. Greyed out
+   when there is nothing to update, it draws a tooltip like a line's, above
+   it and as wide. */
+.cart-sidebar .well .cart-button-padding.ck-banner-all {
+  position: relative;
+}
+
+.cart-sidebar .well .ck-banner-all .ck-banner-alltip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 2px);
+  left: 0;
+  z-index: 1000;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: 6px;
+
+  background: #0f1c30;
+  color: #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 35%);
+
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.cart-sidebar .well .ck-banner-all:hover .ck-banner-alltip,
+.cart-sidebar .well .ck-banner-all:focus-within .ck-banner-alltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cart-sidebar .well .ck-banner-all .ck-banner-alltip {
+    transform: translateY(3px);
+    transition: opacity 120ms ease, transform 120ms ease, visibility 0s linear 120ms;
+  }
+
+  .cart-sidebar .well .ck-banner-all:hover .ck-banner-alltip,
+  .cart-sidebar .well .ck-banner-all:focus-within .ck-banner-alltip {
+    transform: none;
+    transition-delay: 80ms, 80ms, 0s;
+  }
+}

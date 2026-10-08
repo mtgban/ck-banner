@@ -202,8 +202,9 @@ retry, a second request in flight, a request for a line whose verdict is not
 *better*, or a request built from a control that no longer matches its line.
 
 **Update all** sits under the sidebar's *Empty Cart*, in CK's own button
-style, while any line offers *Update price*, and counts them ("Update 3
-prices"). One click sends the request above for each of those lines, top to
+style, once the cart is marked, and counts the lines that offer *Update
+price* ("Update 3 prices"). With none it reads *Update prices*, greyed out,
+and its tooltip says "All the best prices are already in the cart." One click sends the request above for each of those lines, top to
 bottom, one at a time and with the walk's pause (section 10) before each
 after the first. The list must be fresh when it starts. Each answer is read
 as in the table: a repriced line reads green "Updated", a kept one "Price
