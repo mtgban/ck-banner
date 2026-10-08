@@ -416,7 +416,8 @@ marked, and *CSV* (section 11), greyed out until a list is in hand. The
 whole list is read only on that click, or before an update when CK has a
 newer one (section 7), and *Refresh* is greyed out while the list in hand is
 fresh, since reading it again would change nothing, until the hour runs out
-or CK serves a newer one (section 5). While it reads the heading says
+or CK serves a newer one (section 5). Until a list is in hand the heading is
+the name alone. While it reads the heading says
 `fetching API`. Done, the heading counts the lines the list now favours in the same
 word on both carts (`3 better`), or says `ready`, beside a tick. While it
 counts any, the count is a control: each click, or Enter, scrolls to the
