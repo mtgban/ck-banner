@@ -454,6 +454,34 @@ describe("Update price", () => {
   });
 });
 
+describe("the count", () => {
+  const two = () => pricelist({ 206649: { price_buy: "28.50" }, 224590: { price_buy: "0.20" } });
+
+  test("takes the page to each better line in turn, and round again", async () => {
+    const it = await mountCart({ prices: two() });
+    it.button().click();
+    await it.idle();
+    // Plain fields only: a failing expect on a node prints the whole window.
+    const at = () => [it.focused().className, it.focused().closest(".ck-banner-line")?.getAttribute("data-product")];
+    expect(it.label().getAttribute("role")).toBe("button");
+    it.label().click();
+    expect(at()).toEqual(["btn ck-banner-update", "206649"]);
+    it.label().dispatchEvent(new it.window.KeyboardEvent("keydown", { key: "Enter" }));
+    expect(at()).toEqual(["btn ck-banner-update", "224590"]);
+    it.label().click();
+    expect(at()).toEqual(["btn ck-banner-update", "206649"]);
+  });
+
+  test("is plain text when no line is better", async () => {
+    const it = await mountCart();
+    it.button().click();
+    await it.idle();
+    expect(it.label().hasAttribute("role")).toBe(false);
+    it.label().click();
+    expect(!!it.focused().closest(".ck-banner-line")).toBe(false);
+  });
+});
+
 describe("Update all", () => {
   const two = () => pricelist({ 206649: { price_buy: "28.50" }, 224590: { price_buy: "0.20" } });
 

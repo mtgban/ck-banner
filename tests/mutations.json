@@ -511,6 +511,20 @@
     "expectFailing": "updates every better line, top to bottom, then reloads"
   },
   {
+    "guard": "the count jumps to a better line",
+    "file": "src/cartpage.js",
+    "find": "panel.jump(counts[key] ? next : null);",
+    "replace": "panel.jump(null);",
+    "expectFailing": "takes the page to each better line in turn, and round again"
+  },
+  {
+    "guard": "the jump goes round again",
+    "file": "src/cartpage.js",
+    "find": "jumped = (jumped + 1) % boxes.length;",
+    "replace": "jumped = Math.min(jumped + 1, boxes.length - 1);",
+    "expectFailing": "takes the page to each better line in turn, and round again"
+  },
+  {
     "guard": "a kept file is used only for the page 1 it was built from",
     "file": "src/history.js",
     "find": "if (!entry || entry.v !== CKB.FILE_VERSION || entry.signature !== signature ||",
