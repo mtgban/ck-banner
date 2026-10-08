@@ -334,9 +334,9 @@
     lastSummary();
   }
 
-  // placeAll puts Update all under the sidebar's Empty Cart while any line
-  // offers Update price, in CK's own button style, and takes it away when
-  // none does.
+  // placeAll puts Update all under the sidebar's Empty Cart once the cart is
+  // marked, in CK's own button style: counting the lines that offer Update
+  // price, or greyed out, its tooltip saying why, when none does.
   function placeAll() {
     if (all) {
       all.remove();
@@ -345,7 +345,7 @@
     var n = document.querySelectorAll(".ck-banner-update").length;
     var empty = document.querySelector('form[action$="/sellcart/empty_cart"]');
     var slot = empty && empty.closest(".cart-button-padding");
-    if (!n || !slot) {
+    if (!slot) {
       return;
     }
     all = document.createElement("div");
@@ -353,9 +353,23 @@
     all.innerHTML = '<div class="btn-group-justified"><div class="btn-group">' +
       '<button type="button" class="btn btn-default ck-banner-update-all"></button></div></div>';
     var control = all.querySelector("button");
-    control.textContent = "Update " + n + (n === 1 ? " price" : " prices");
-    control.disabled = writing || locked;
-    control.addEventListener("click", updateAll);
+    if (!n) {
+      // Greyed rather than disabled, so its tooltip shows on hover and focus.
+      control.textContent = "Update prices";
+      control.classList.add("disabled");
+      control.setAttribute("aria-disabled", "true");
+      control.setAttribute("aria-describedby", "ck-banner-alltip");
+      var tip = document.createElement("span");
+      tip.className = "ck-banner-alltip";
+      tip.id = "ck-banner-alltip";
+      tip.setAttribute("role", "tooltip");
+      tip.textContent = "All the best prices are already in the cart.";
+      all.appendChild(tip);
+    } else {
+      control.textContent = "Update " + n + (n === 1 ? " price" : " prices");
+      control.disabled = writing || locked;
+      control.addEventListener("click", updateAll);
+    }
     slot.after(all);
   }
 

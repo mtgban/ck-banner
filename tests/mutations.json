@@ -469,6 +469,13 @@
     "expectFailing": "sits under Empty Cart, counting the lines it will update"
   },
   {
+    "guard": "Update all is greyed when no line is better",
+    "file": "src/cartpage.js",
+    "find": "    if (!n) {\n      // Greyed",
+    "replace": "    if (false) {\n      // Greyed",
+    "expectFailing": "is greyed out, saying why, when no line is better"
+  },
+  {
     "guard": "Update all is paced",
     "file": "src/cartpage.js",
     "find": "CKB.after(i ? CKB.PACE : 0)",

@@ -512,11 +512,27 @@ describe("Update all", () => {
     expect(it.all().textContent).toBe("Update 2 prices");
   });
 
-  test("is not offered with no line to update, nor on the buy cart", async () => {
-    const same = await mountCart();
-    same.button().click();
-    await same.idle();
-    expect(!!same.all()).toBe(false);
+  test("is greyed out, saying why, when no line is better", async () => {
+    const it = await mountCart();
+    expect(!!it.all()).toBe(false);
+    it.button().click();
+    await it.idle();
+    const control = it.all().querySelector("button");
+    expect([control.textContent, control.className, control.getAttribute("aria-disabled")]).toEqual([
+      "Update prices",
+      "btn btn-default ck-banner-update-all disabled",
+      "true",
+    ]);
+    expect(it.all().querySelector("#" + control.getAttribute("aria-describedby")).textContent).toBe(
+      "All the best prices are already in the cart."
+    );
+    control.click();
+    await it.idle();
+    expect(it.written).toEqual([]);
+    expect(it.busy()).toBe(false);
+  });
+
+  test("is not offered on the buy cart", async () => {
     const buy = await mountCart({ side: "buy", prices: pricelist({ 10202: { condition_values: { vg_price: "1.50" } } }) });
     buy.button().click();
     await buy.idle();
@@ -619,6 +635,6 @@ describe("Update all", () => {
     expect(it.marks().filter((m) => m.badge === "Price kept").length).toBe(2);
     expect(it.reloads).toEqual([]);
     expect(it.busy()).toBe(false);
-    expect(!!it.all()).toBe(false);
+    expect(it.all().querySelector("button").textContent).toBe("Update prices");
   });
 });
