@@ -53,9 +53,10 @@
   var wanted = {};
   var expiry = null;
   // all is the Update all control the last marking placed, if any; run is
-  // an Update all under way.
+  // an Update all under way; jumped is the line the heading last went to.
   var all = null;
   var run = null;
+  var jumped = -1;
 
   CKB.reload = function () {
     location.reload();
@@ -188,6 +189,7 @@
     updates(true);
     box.querySelector(".ck-banner-update").textContent = "Updating";
     panel.clear();
+    panel.jump(null);
     panel.word("updating");
     panel.busy(true);
     CKB.updatePrice(line).then(function (answer) {
@@ -269,6 +271,7 @@
     updates(true);
     all.querySelector("button").textContent = "Updating";
     panel.clear();
+    panel.jump(null);
     panel.busy(true);
     send(lines, 0);
   }
@@ -356,6 +359,18 @@
     slot.after(all);
   }
 
+  // next takes the page to the next line the list favours, after the one
+  // it went to last and round again, and focuses its control.
+  function next() {
+    var boxes = document.querySelectorAll('.ck-banner-line[data-verdict="' + ORDER[side][0][0] + '"]');
+    if (!boxes.length) {
+      return;
+    }
+    jumped = (jumped + 1) % boxes.length;
+    boxes[jumped].scrollIntoView({ block: "center" });
+    boxes[jumped].querySelector(".ck-banner-update, .ck-banner-badge").focus({ preventScroll: true });
+  }
+
   function signature(lines) {
     return lines
       .map(function (l) {
@@ -371,6 +386,7 @@
     var key = ORDER[side][0][0];
     panel.word(counts[key] ? counts[key] + " " + ORDER[side][0][1] : "ready");
     panel.mark("done");
+    panel.jump(counts[key] ? next : null);
     refreshable();
 
     // "2 prices are the same", then when the list is from, on its own line.
@@ -412,6 +428,7 @@
       }
     });
     shown = signature(lines);
+    jumped = -1;
     placeAll();
     lastSummary = function () {
       summary(counts);
@@ -428,6 +445,7 @@
   }
 
   function idle() {
+    panel.jump(null);
     panel.word("prices");
     panel.clear();
     panel.hint("Compare this cart with Card Kingdom's price list, read once and kept for an hour");
@@ -440,6 +458,7 @@
     var controller = new AbortController();
     reading = controller;
     panel.clear();
+    panel.jump(null);
     panel.word("fetching prices");
     panel.busy(true);
     CKB.fetchList({ signal: controller.signal })

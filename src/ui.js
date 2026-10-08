@@ -33,10 +33,24 @@ globalThis.CKB = globalThis.CKB || {};
 
     var hinted = "";
     var recapped = "";
+    var jumper = null;
 
     function at(selector) {
       return root.querySelector(selector);
     }
+
+    var label = at(".ck-banner-label");
+    label.addEventListener("click", function () {
+      if (jumper) {
+        jumper();
+      }
+    });
+    label.addEventListener("keydown", function (event) {
+      if (jumper && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        jumper();
+      }
+    });
 
     function working() {
       return root.classList.contains("ck-banner-busy");
@@ -103,6 +117,18 @@ globalThis.CKB = globalThis.CKB || {};
           window.removeEventListener("beforeunload", hold);
         }
         tip();
+      },
+
+      // jump makes the heading a control that calls go, or plain text again
+      // when go is null.
+      jump: function (go) {
+        jumper = go;
+        label.classList.toggle("ck-banner-jumps", !!go);
+        if (go) {
+          label.setAttribute("role", "button");
+        } else {
+          label.removeAttribute("role");
+        }
       },
 
       // release lets the page go without asking, for a reload the work
