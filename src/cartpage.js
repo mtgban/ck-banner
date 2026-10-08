@@ -19,8 +19,8 @@
   // the list agrees with gets no mark at all.
   var BADGES = {
     dropped: ["Price dropped", "good"],
-    worse: ["List is lower", "warn"],
-    raised: ["List is higher", "warn"],
+    worse: ["Keep price", "warn"],
+    raised: ["Price went up", "warn"],
     wants0: ["Wants 0", "warn"],
     nostock: ["None in stock", "warn"],
     unlisted: ["?", "quiet"],
@@ -71,7 +71,7 @@
     switch (result.verdict) {
       case "better":
       case "worse":
-        return "List pays " + p + ", cart has " + c + by + ".";
+        return "Buylist currently pays " + p + ".";
       case "wants0":
         return "List wants none, at " + p + ".";
       case "dropped":

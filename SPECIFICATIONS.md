@@ -133,7 +133,7 @@ First match wins:
 | identity does not match the list row | mismatch | grey `?` |
 | `qty_buying` is 0 | wants 0 | amber "Wants 0" |
 | list pays more | better | *Update price* (section 7) |
-| list pays less | worse | amber "List is lower" |
+| list pays less | worse | amber "Keep price" |
 | equal | same | nothing |
 
 On the buy cart the same table runs the other way, against the list's price
@@ -146,7 +146,7 @@ and quantity for the line's condition:
 | identity does not match the list row | mismatch | grey `?` |
 | none in stock in that condition | none in stock | amber "None in stock" |
 | list charges less | reduced | green "Price dropped" |
-| list charges more | raised | amber "List is higher" |
+| list charges more | raised | amber "Price went up" |
 | equal | same | nothing |
 
 A line's id must name the card its image shows: the list row's key (section
@@ -154,10 +154,12 @@ A line's id must name the card its image shows: the list row's key (section
 names another card is not compared. A line the list agrees with is left
 unmarked. Each other mark sits left of *Save for Later* in one row, never
 inside its link: a square badge as tall as CK's button, or *Update price*
-drawn exactly like *Save for Later*. Its tooltip is one line: the list's price
-and the cart's ("List pays $0.05, cart has $0.10 (-$0.05 each).", "List asks
-$1.50 in VG, cart has $1.74 (-$0.24 each).", "Not in the price list."). Every
-comparison is with a snapshot; none promises a checkout price.
+drawn exactly like *Save for Later*. Its tooltip is one line: on the sell
+cart what the buylist pays now ("Buylist currently pays $0.05."), the line
+showing its own; on the buy cart the list's price and the cart's ("List asks
+$1.50 in VG, cart has $1.74 (-$0.24 each)."); or why the line was not
+compared ("Not in the price list."). Every comparison is with a snapshot;
+none promises a checkout price.
 
 The page is redrawn by Vue, so marking is idempotent: a line's old mark is
 removed before its new one goes in, and an observer marks the cart again only
