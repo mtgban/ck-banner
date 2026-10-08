@@ -677,5 +677,19 @@
     "find": "!(l.host || l.details) || (l.host && l.host.querySelector(",
     "replace": "!l.host || (l.host && l.host.querySelector(",
     "expectFailing": "a signed-out line the page redrew is marked again"
+  },
+  {
+    "guard": "the cart file's edition drops the rarity",
+    "file": "src/cart.js",
+    "find": ".replace(/ \\([A-Z]\\)$/, \"\")",
+    "replace": "",
+    "expectFailing": "writes each sell line as the page shows it"
+  },
+  {
+    "guard": "the cart file's edition drops Foil",
+    "file": "src/cart.js",
+    "find": ".replace(/ Foil$/, \"\")",
+    "replace": "",
+    "expectFailing": "writes each sell line as the page shows it"
   }
 ]
