@@ -24,6 +24,8 @@
     dropped: ["Price dropped", "good"],
     worse: ["Keep price", "warn"],
     raised: ["Price went up", "warn"],
+    kept: ["Price kept", "warn"],
+    current: ["Price is current", "quiet"],
     wants0: ["Wants 0", "warn"],
     nostock: ["None in stock", "warn"],
     unlisted: ["?", "quiet"],
@@ -34,7 +36,14 @@
   // The panel's count, in the order the spec's table gives them, in the
   // same words on both carts: better is the side that favours the visitor.
   var ORDER = {
-    sell: [["better", "better"], ["worse", "worse"], ["wants0", "not wanted"], ["same", "the same"]],
+    sell: [
+      ["better", "better"],
+      ["worse", "worse"],
+      ["wants0", "not wanted"],
+      ["same", "the same"],
+      ["kept", "kept by Card Kingdom"],
+      ["current", "already current"],
+    ],
     buy: [["dropped", "better"], ["raised", "worse"], ["nostock", "out of stock"], ["same", "the same"]],
   };
   var SKIPPED = [["unlisted", "not listed"], ["mismatch", "not matching"], ["unreadable", "unreadable"]];
@@ -59,6 +68,9 @@
   // an Update all under way; jumped is the line the heading last went to.
   var all = null;
   var run = null;
+  // seen is what CK's answers to Update price said it pays now, by product
+  // id, against the list in hand (store.js keeps it).
+  var seen = {};
   var jumped = -1;
 
   CKB.reload = function () {
@@ -73,6 +85,14 @@
     return (cents > 0 ? "+" : "") + CKB.dollars(cents);
   }
 
+  function keptTip(price, buy) {
+    return "Card Kingdom kept " + each(price) + ". Remove the card and add it again to take " + each(buy) + ".";
+  }
+
+  function currentTip(buy, listed) {
+    return "Card Kingdom pays " + each(buy) + " now, not the " + each(listed) + " the price list said; the cart keeps its price.";
+  }
+
   function lineTip(line, result) {
     var p = CKB.dollars(result.price);
     var c = CKB.dollars(line.each);
@@ -83,6 +103,10 @@
         return "Buylist currently pays " + p + ".";
       case "wants0":
         return "List wants none, at " + p + ".";
+      case "kept":
+        return keptTip(line.each, result.price);
+      case "current":
+        return currentTip(result.price, result.listed);
       case "dropped":
       case "raised":
         return "List asks " + p + " in " + line.condition + ", cart has " + c + by + ".";
@@ -193,13 +217,14 @@
       swap(box, "Check again", "warn", "The price list is over an hour old; check prices again before updating.");
       return;
     }
-    var result = line ? CKB.compare(line, list, side) : null;
+    var result = line ? CKB.compare(line, list, side, seen) : null;
     if (!result || result.verdict !== "better") {
       swap(box, "Check again", "warn", "This line changed since it was marked; check prices again.");
       return;
     }
     // A line with no product id of its own goes with the one its card has.
     line.productID = result.id;
+    line.listed = result.price;
 
     writing = true;
     updates(true);
@@ -214,6 +239,7 @@
   }
 
   function answered(line, box, answer) {
+    learn(line, answer);
     // Both of these end in a reload, so the line stays "Updating", and the
     // panel busy, until the cart shows CK's own figures; nothing else is sent.
     if (answer.outcome === "repriced") {
@@ -232,33 +258,65 @@
       });
       return;
     }
-    if (answer.outcome !== "kept") {
+    if (answer.outcome === "lowered") {
+      lowered(line, box, answer);
+      return;
+    }
+    if (answer.outcome !== "kept" && answer.outcome !== "current") {
       refused(box, answer.message);
       return;
     }
 
     writing = false;
     panel.busy(false);
-    kept(box, answer);
+    settled(line, box, answer);
     updates(false);
     placeAll();
     lastSummary();
   }
 
-  function kept(box, answer) {
-    swap(box, "Price kept", "warn", "Card Kingdom kept " + each(answer.price) + ". Remove the card and add it again to take " +
-      each(answer.buy) + ".");
+  // learn keeps what CK's answer said it pays now for the line's card, so
+  // the list in hand is not believed over it, on this page or the next.
+  function learn(line, answer) {
+    if (answer.buy === undefined) {
+      return;
+    }
+    seen[line.productID] = { buy: answer.buy, kept: answer.outcome === "kept" };
+    var createdAt = list.createdAt;
+    store
+      .then(function (s) {
+        return CKB.keepSeen(s, createdAt, seen);
+      })
+      .catch(function () {});
   }
 
-  // refused marks the line "Not updated" and sends nothing more until the
-  // page is reloaded, since the cart may no longer be what the page shows.
-  function refused(box, message) {
+  // settled marks a line CK left as it was: kept, though it pays more, or
+  // current, since the line already has what it pays now.
+  function settled(line, box, answer) {
+    if (answer.outcome === "kept") {
+      swap(box, "Price kept", "warn", keptTip(answer.price, answer.buy));
+    } else {
+      swap(box, "Price is current", "quiet", currentTip(answer.buy, line.listed));
+    }
+  }
+
+  // lowered reports CK repricing a line below what it had, the list having
+  // said it paid more, and sends nothing more until the page is reloaded.
+  function lowered(line, box, answer) {
+    refused(box, "Card Kingdom lowered this line to " + each(answer.price) + " from " + each(line.each) +
+      ", though the price list said " + each(line.listed), "Price lowered");
+  }
+
+  // refused marks the line "Not updated", or with badge, and sends nothing
+  // more until the page is reloaded, since the cart may no longer be what
+  // the page shows.
+  function refused(box, message, badge) {
     writing = false;
     run = null;
     panel.busy(false);
     locked = true;
     updates(true);
-    swap(box, "Not updated", "bad", message + ". Reload the page to see what Card Kingdom holds.");
+    swap(box, badge || "Not updated", "bad", message + ". Reload the page to see what Card Kingdom holds.");
     lastSummary();
     panel.fail(message + ". Reload the page to see what Card Kingdom holds; no other update will be sent until then.");
   }
@@ -276,11 +334,12 @@
       return;
     }
     var lines = CKB.readCart(document, location.href, side).filter(function (l) {
-      var result = CKB.compare(l, list, side);
+      var result = CKB.compare(l, list, side, seen);
       if (result.verdict !== "better" || !document.querySelector('.ck-banner-line[data-line="' + l.lineID + '"] .ck-banner-update')) {
         return false;
       }
       l.productID = result.id;
+      l.listed = result.price;
       return true;
     });
     if (!lines.length) {
@@ -315,13 +374,18 @@
       .then(function (answer) {
         if (!answer) {
           ran();
-        } else if (answer.outcome === "repriced") {
+          return;
+        }
+        learn(line, answer);
+        if (answer.outcome === "repriced") {
           run.changed = true;
           swap(box, "Updated", "good", "Card Kingdom now pays " + each(answer.buy) + ".");
           send(lines, i + 1);
-        } else if (answer.outcome === "kept") {
-          kept(box, answer);
+        } else if (answer.outcome === "kept" || answer.outcome === "current") {
+          settled(line, box, answer);
           send(lines, i + 1);
+        } else if (answer.outcome === "lowered") {
+          lowered(line, box, answer);
         } else if (answer.outcome === "quantity") {
           run.changed = true;
           CKB.restoreQuantity(line, answer.lineID, line.qty).then(function (restored) {
@@ -456,7 +520,7 @@
     var counts = {};
     wanted = {};
     lines.forEach(function (line) {
-      var result = CKB.compare(line, list, side);
+      var result = CKB.compare(line, list, side, seen);
       mark(line, result);
       counts[result.verdict] = (counts[result.verdict] || 0) + 1;
       if (result.verdict !== "same") {
@@ -517,8 +581,11 @@
         list = fetched;
         panel.busy(false);
         return store.then(function (s) {
-          annotate();
-          return CKB.keepList(s, fetched).catch(function () {});
+          return CKB.keptSeen(s, fetched.createdAt).then(function (prices) {
+            seen = prices;
+            annotate();
+            return CKB.keepList(s, fetched).catch(function () {});
+          });
         });
       })
       .catch(function (err) {
@@ -593,10 +660,16 @@
     store
       .then(function (s) {
         return CKB.keptList(s, Date.now()).then(function (kept) {
-          if (kept && !list && !reading) {
-            list = kept;
-            annotate();
+          if (!kept || list || reading) {
+            return null;
           }
+          return CKB.keptSeen(s, kept.createdAt).then(function (prices) {
+            if (!list && !reading) {
+              list = kept;
+              seen = prices;
+              annotate();
+            }
+          });
         });
       })
       .catch(function () {});

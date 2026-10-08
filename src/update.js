@@ -39,15 +39,23 @@ globalThis.CKB = globalThis.CKB || {};
     var read = { lineID: item.id, qty: item.qty, price: price, buy: buy };
     if (item.qty !== line.qty) {
       read.outcome = "quantity";
+    } else if (price > line.each) {
+      read.outcome = "repriced";
+    } else if (price < line.each) {
+      read.outcome = "lowered";
     } else {
-      read.outcome = price === buy ? "repriced" : "kept";
+      // The line is as it was: CK kept its price though it pays more now,
+      // or pays no more than the line has, the list being out of date.
+      read.outcome = buy > line.each ? "kept" : "current";
     }
     return read;
   }
 
   // updatePrice sends the one request for line and answers with CK's
-  // outcome: repriced (its quantity, at the product's current buy price),
-  // kept (its quantity, at the old price), quantity (CK set another, in
+  // outcome, and with buy, what CK pays for the card now: repriced (its
+  // quantity, at a higher price), kept (its quantity and price, though CK
+  // pays more), current (its quantity and price, CK paying no more),
+  // lowered (its quantity, at a lower price), quantity (CK set another, in
   // qty) or failed (message says why). It never rejects.
   CKB.updatePrice = function (line) {
     return fetch(CKB.SELL_ADD, {

@@ -1,4 +1,5 @@
 import { test, expect, describe } from "bun:test";
+import { IDBFactory } from "fake-indexeddb";
 import { CKB, docOf, text } from "./helpers.js";
 import { mountCart, pricelist } from "./panel.js";
 
@@ -729,5 +730,92 @@ describe("a signed-out cart", () => {
     it.window.document.querySelector('.ck-banner-line[data-product="224590"]').closest(".ck-banner-own").remove();
     await it.settle(400);
     expect(it.mark(224590).badge).toBe("Keep price");
+  });
+});
+
+describe("a price list out of date", () => {
+  // CK's answer for line 206649 (1 at $27.00), at price each and buy.
+  const answer = (price, buy) => ({
+    ok: true,
+    status: 200,
+    json: () =>
+      Promise.resolve({
+        lineitems: [{ id: 5550001, product_id: 206649, style: "NM", qty: 1, price, product: { price_buy: buy } }],
+      }),
+  });
+  // A list that pays $28.50 for 206649 and $0.20 for 224590 (cart: $0.10).
+  const listed = () => pricelist({ 206649: { price_buy: "28.50" }, 224590: { price_buy: "0.20" } });
+
+  async function marked(options) {
+    const it = await mountCart({ prices: listed(), ...options });
+    it.button().click();
+    await it.idle();
+    return it;
+  }
+
+  test("a line already at CK's price is said to be current, with no reload", async () => {
+    const it = await marked({ writes: () => Promise.resolve(answer("27.00", "27.00")) });
+    it.update(206649).click();
+    await it.idle();
+    expect(it.mark(206649)).toMatchObject({ badge: "Price is current", tone: "quiet" });
+    expect(it.mark(206649).tip).toBe("Card Kingdom pays $27.00 each now, not the $28.50 each the price list said; the cart keeps its price.");
+    expect([it.written.length, it.reloads.length, it.failed()]).toEqual([1, 0, false]);
+    expect(it.update(224590).disabled).toBe(false);
+  });
+
+  test("what CK said is kept for the next page, until a newer list", async () => {
+    const idb = new IDBFactory();
+    const it = await marked({ idb, writes: () => Promise.resolve(answer("27.00", "27.00")) });
+    it.update(206649).click();
+    await it.idle();
+    // The next page, on the same list: no Update price where CK said no.
+    const next = await mountCart({ idb, kept: CKB.reducePrices(listed(), Date.now()) });
+    expect(next.mark(206649)).toMatchObject({ verdict: "current", badge: "Price is current" });
+    expect(next.mark(224590).verdict).toBe("better");
+    // A newer list carries CK's prices itself, and what was said is dropped.
+    const newer = listed();
+    newer.meta.created_at = "2026-09-17 05:04:00";
+    const later = await mountCart({ idb, kept: CKB.reducePrices(newer, Date.now()) });
+    expect(later.mark(206649).verdict).toBe("better");
+  });
+
+  test("CK keeping the old price is kept for the next page too", async () => {
+    const idb = new IDBFactory();
+    const it = await marked({ idb, writes: () => Promise.resolve(answer("27.00", "28.50")) });
+    it.update(206649).click();
+    await it.idle();
+    const next = await mountCart({ idb, kept: CKB.reducePrices(listed(), Date.now()) });
+    expect(next.mark(206649)).toMatchObject({ verdict: "kept", badge: "Price kept" });
+    expect(next.mark(206649).tip).toBe("Card Kingdom kept $27.00 each. Remove the card and add it again to take $28.50 each.");
+  });
+
+  test("a line CK priced lower is said in red, and every update locks", async () => {
+    const it = await marked({ writes: () => Promise.resolve(answer("25.00", "25.00")) });
+    it.update(206649).click();
+    await it.idle();
+    expect(it.mark(206649)).toMatchObject({ badge: "Price lowered", tone: "bad" });
+    expect(it.mark(206649).tip).toBe(
+      "Card Kingdom lowered this line to $25.00 each from $27.00 each, though the price list said $28.50 each. Reload the page to see what Card Kingdom holds."
+    );
+    expect([it.failed(), it.update(224590).disabled, it.reloads.length]).toEqual([true, true, 0]);
+  });
+
+  test("Update all moves past a current line and stops at a lowered one", async () => {
+    const current = await marked({ writes: (url, o) => Promise.resolve(JSON.parse(o.body).product_id === "206649" ? answer("27.00", "27.00") : {
+      ok: true, status: 200,
+      json: () => Promise.resolve({ lineitems: [{ id: 5550002, product_id: 224590, style: "NM", qty: 1, price: "0.20", product: { price_buy: "0.20" } }] }),
+    }) });
+    current.all().querySelector("button").click();
+    await current.idle();
+    expect(current.written.length).toBe(2);
+    expect(current.mark(206649).badge).toBe("Price is current");
+    expect(current.reloads.length).toBe(1);
+
+    const lowered = await marked({ writes: () => Promise.resolve(answer("25.00", "25.00")) });
+    lowered.all().querySelector("button").click();
+    await lowered.idle();
+    expect(lowered.written.length).toBe(1);
+    expect(lowered.mark(206649).badge).toBe("Price lowered");
+    expect(lowered.reloads).toEqual([]);
   });
 });

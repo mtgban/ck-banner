@@ -373,9 +373,65 @@
   {
     "guard": "CK's answer, not the list, says the line was repriced",
     "file": "src/update.js",
-    "find": "read.outcome = price === buy ? \"repriced\" : \"kept\";",
-    "replace": "read.outcome = \"repriced\";",
+    "find": "      read.outcome = buy > line.each ? \"kept\" : \"current\";",
+    "replace": "      read.outcome = \"repriced\";",
     "expectFailing": "the line at its quantity and the old price is kept"
+  },
+  {
+    "guard": "a line CK priced lower is lowered",
+    "file": "src/update.js",
+    "find": "    } else if (price < line.each) {\n      read.outcome = \"lowered\";",
+    "replace": "    } else if (false) {\n      read.outcome = \"lowered\";",
+    "expectFailing": "the line at a lower price than it had is lowered"
+  },
+  {
+    "guard": "a line at CK's price is current",
+    "file": "src/update.js",
+    "find": "read.outcome = buy > line.each ? \"kept\" : \"current\";",
+    "replace": "read.outcome = \"kept\";",
+    "expectFailing": "the line at its old price, CK paying no more now, is current"
+  },
+  {
+    "guard": "what CK said outranks the list",
+    "file": "src/compare.js",
+    "find": "      var pays = live ? live.buy : row.buy;",
+    "replace": "      var pays = row.buy;",
+    "expectFailing": "what CK said is kept for the next page, until a newer list"
+  },
+  {
+    "guard": "a kept price stays kept",
+    "file": "src/compare.js",
+    "find": "      if (live && live.kept && pays > line.each) {",
+    "replace": "      if (false) {",
+    "expectFailing": "CK keeping the old price is kept for the next page too"
+  },
+  {
+    "guard": "what CK said is dropped with a newer list",
+    "file": "src/store.js",
+    "find": "seen && seen.createdAt === createdAt && seen.prices",
+    "replace": "seen && seen.prices",
+    "expectFailing": "what CK said is kept for the next page, until a newer list"
+  },
+  {
+    "guard": "a current answer does not reload",
+    "file": "src/cartpage.js",
+    "find": "    if (answer.outcome !== \"kept\" && answer.outcome !== \"current\") {",
+    "replace": "    if (answer.outcome === \"current\") {\n      CKB.reload();\n      return;\n    }\n    if (answer.outcome !== \"kept\") {",
+    "expectFailing": "a line already at CK's price is said to be current, with no reload"
+  },
+  {
+    "guard": "a lowered line locks",
+    "file": "src/cartpage.js",
+    "find": "    if (answer.outcome === \"lowered\") {\n      lowered(line, box, answer);\n      return;\n    }",
+    "replace": "",
+    "expectFailing": "a line CK priced lower is said in red, and every update locks"
+  },
+  {
+    "guard": "Update all stops at a lowered line",
+    "file": "src/cartpage.js",
+    "find": "        } else if (answer.outcome === \"lowered\") {\n          lowered(line, box, answer);",
+    "replace": "        } else if (answer.outcome === \"lowered\") {\n          send(lines, i + 1);",
+    "expectFailing": "Update all moves past a current line and stops at a lowered one"
   },
   {
     "guard": "another quantity in the answer is not taken as done",
