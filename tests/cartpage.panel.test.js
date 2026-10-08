@@ -42,6 +42,26 @@ describe("the panel", () => {
   });
 });
 
+describe("the cart's CSV", () => {
+  test("saves the sell cart as it stands, with no list read", async () => {
+    const it = await mountCart();
+    it.csv().click();
+    const file = await it.file();
+    expect(file.name).toBe("ck-sell-cart.csv");
+    expect(file.text.split("\n").slice(0, 2)).toEqual([
+      "Name,Edition,Foil,Condition,Quantity,Price,Total,CK ID",
+      "Necropotence,Eternal Masters,No,NM,1,27.00,27.00,206649",
+    ]);
+    expect(it.asked).toEqual([]);
+  });
+
+  test("saves the buy cart under its own name", async () => {
+    const it = await mountCart({ side: "buy" });
+    it.csv().click();
+    expect((await it.file()).name).toBe("ck-buy-cart.csv");
+  });
+});
+
 describe("checking prices on the sell cart", () => {
   test("reads the list once, without cookies or headers", async () => {
     const it = await mountCart();

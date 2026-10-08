@@ -304,6 +304,25 @@ same rows: a value is quoted only when it holds a comma, a quote or a line
 break, a quote is doubled, and every row ends in LF. No address and
 nothing from a tracking link.
 
+The carts' *CSV* writes the cart as it stands, list or no list, one row per
+line in the page's order, as `ck-sell-cart.csv` or `ck-buy-cart.csv`, with
+the same writing. Its columns are named so that mtgban's uploader reads them:
+
+| Column | From the line |
+|--------|---------------|
+| `Name` | its title (`.title`), variation and all |
+| `Edition` | its edition (`.edition`), without the rarity after it or a trailing " Foil" |
+| `Foil` | `Yes` when CK's FOIL label is there, else `No` |
+| `Condition` | `NM` on the sell cart; the line's own on the buy cart |
+| `Quantity` | its quantity |
+| `Price` | its price each, in plain dollars (`1.50`) |
+| `Total` | its line total, the same way |
+| `CK ID` | its product id |
+
+A line the page could not read whole is written with what was read. On
+every line of four saved carts, `Edition: Name` was the line's image text,
+" Foil" aside.
+
 ## 12. The CSV cache
 
 A saved file is kept in IndexedDB beside the price list (section 5), one per
@@ -350,8 +369,8 @@ comes from the one kept (section 12), the button turns into *Rebuild* until
 the year changes. At these addresses a page without the history table (a
 sign-in page) gets no panel.
 
-On the carts the row is one button, *Load prices*, then *Refresh* once the
-cart is marked; the list is read only on that click, and *Refresh* is greyed
+On the carts the row is *Load prices*, then *Refresh* once the cart is
+marked, and *CSV* (section 11), which saves the cart at any time; the list is read only on that click, and *Refresh* is greyed
 out while the list in hand is fresh, since reading it again would change
 nothing, until the hour runs out. While it reads the heading says `fetching
 prices`. Done, the heading counts the lines the list now favours in the same

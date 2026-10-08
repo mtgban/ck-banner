@@ -186,6 +186,16 @@ export async function mountCart({ side = "sell", path, body, prices = pricelist(
     });
   };
 
+  const saved = [];
+  window.URL.createObjectURL = (blob) => {
+    saved.push({ blob });
+    return "blob:none";
+  };
+  window.URL.revokeObjectURL = () => {};
+  window.HTMLAnchorElement.prototype.click = function () {
+    saved[saved.length - 1].name = this.download;
+  };
+
   for (const script of scriptsFor(at.replace(/\?.*$/, ""))) {
     window.eval(source(script));
   }
@@ -232,6 +242,8 @@ export async function mountCart({ side = "sell", path, body, prices = pricelist(
     button: () => at$(".ck-banner-go"),
     label: () => at$(".ck-banner-label"),
     all: () => doc.querySelector(".ck-banner-all"),
+    csv: () => at$(".ck-banner-csv"),
+    file: async (i = 0) => ({ name: saved[i].name, text: await saved[i].blob.text() }),
     focused: () => doc.activeElement,
     busy: () => panel.classList.contains("ck-banner-busy"),
     failed: () => !at$(".ck-banner-mark").hidden && at$(".ck-banner-mark").classList.contains("ck-banner-failed"),

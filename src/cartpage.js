@@ -2,7 +2,8 @@
 // (/cart) against the price list, beside the line's Save for Later.
 //
 // The list is read only on a click and kept for an hour (store.js); a cart
-// opened while a kept list is fresh is marked at once, with no request. The
+// opened while a kept list is fresh is marked at once, with no request. CSV
+// saves the cart as it stands, list or no list. The
 // one thing that changes a cart is Update price on a better sell line
 // (update.js), CK's answer deciding what happened: one line per click, or
 // every better line in turn from Update all, under Empty Cart.
@@ -564,6 +565,15 @@
     button.textContent = "Load prices";
     button.addEventListener("click", check);
     panel.actions.appendChild(button);
+    // The cart as it stands, list or no list.
+    var csv = document.createElement("button");
+    csv.type = "button";
+    csv.className = "ck-banner-go ck-banner-csv";
+    csv.textContent = "CSV";
+    csv.addEventListener("click", function () {
+      CKB.download(CKB.cartCSV(CKB.readCart(document, location.href, side)), "ck-" + side + "-cart.csv");
+    });
+    panel.actions.appendChild(csv);
     panel.root.hidden = !CKB.readCart(document, location.href, side).length;
     document.body.appendChild(panel.root);
     idle();

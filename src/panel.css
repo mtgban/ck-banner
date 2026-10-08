@@ -147,6 +147,11 @@
   cursor: pointer;
 }
 
+/* The carts' CSV shares the row and takes only the room its word needs. */
+#ck-banner .ck-banner-csv {
+  flex: none;
+}
+
 #ck-banner .ck-banner-go:hover {
   background: #3a78d8;
 }
