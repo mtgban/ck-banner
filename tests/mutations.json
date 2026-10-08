@@ -317,8 +317,8 @@
   {
     "guard": "a line's id must name the card it shows",
     "file": "src/compare.js",
-    "find": "if (row.name !== CKB.cardKey(line.alt, line.foil)) {",
-    "replace": "if (false) {",
+    "find": "return row.name === key ? { row: row } : { verdict: \"mismatch\" };",
+    "replace": "return { row: row };",
     "expectFailing": "an id that names another card is not compared"
   },
   {
@@ -352,8 +352,8 @@
   {
     "guard": "the mark sits beside the link, not in it",
     "file": "src/cartpage.js",
-    "find": "line.host.insertBefore(box, line.host.firstChild);",
-    "replace": "line.host.querySelector(\"a\").appendChild(box);",
+    "find": "host.insertBefore(box, host.firstChild);",
+    "replace": "host.querySelector(\"a\").appendChild(box);",
     "expectFailing": "marks every line beside its Save for Later, never inside the link"
   },
   {
@@ -422,8 +422,8 @@
   {
     "guard": "a line that changed sends nothing",
     "file": "src/cartpage.js",
-    "find": "if (!line || CKB.compare(line, list, side).verdict !== \"better\") {",
-    "replace": "if (!line) {",
+    "find": "if (!result || result.verdict !== \"better\") {",
+    "replace": "if (!result) {",
     "expectFailing": "a line that changed since it was marked sends nothing"
   },
   {
@@ -611,8 +611,8 @@
   {
     "guard": "lines left unmarked do not set off another marking",
     "file": "src/cartpage.js",
-    "find": "return !wanted[l.lineID] || !l.host ||",
-    "replace": "return !l.host ||",
+    "find": "return !wanted[l.lineID] || !(l.host || l.details) ||",
+    "replace": "return !(l.host || l.details) ||",
     "expectFailing": "its own marks, and the lines it leaves unmarked, do not make it mark again"
   },
   {
@@ -634,6 +634,48 @@
     "file": "src/prices.js",
     "find": "name.replace(/ Foil(?=: )/g, \"\")",
     "replace": "name",
-    "expectFailing": "a foil whose image writes Foil after the edition is its own card too"
+    "expectFailing": "a foil whose list edition says Foil is its own card too"
+  },
+  {
+    "guard": "a line is its title and edition, not its image text",
+    "file": "src/compare.js",
+    "find": "return CKB.cardKey(line.edition + \": \" + line.name, line.foil);",
+    "replace": "return CKB.cardKey(line.alt, line.foil);",
+    "expectFailing": "a long name cut short in the image is still its card"
+  },
+  {
+    "guard": "a line with no product id is found by its card",
+    "file": "src/compare.js",
+    "find": "      var found = CKB.findCard(list, key);\n      return found ? { row: found } : { verdict: \"unlisted\" };",
+    "replace": "      return { verdict: \"unlisted\" };",
+    "expectFailing": "is found by its card"
+  },
+  {
+    "guard": "a card two rows share is found in neither",
+    "file": "src/prices.js",
+    "find": " ||\n        (lo + 1 < order.length && list.names[order[lo + 1]] === key)) {",
+    "replace": ") {",
+    "expectFailing": "is not listed when two rows are its card"
+  },
+  {
+    "guard": "a signed-out line gets a box of its own",
+    "file": "src/cartpage.js",
+    "find": "    if (result.verdict === \"same\" || (!host && !line.details)) {",
+    "replace": "    if (result.verdict === \"same\" || !host) {",
+    "expectFailing": "is marked by each line's card, in boxes of its own"
+  },
+  {
+    "guard": "a signed-out line is updated with its card's id",
+    "file": "src/cartpage.js",
+    "find": "    line.productID = result.id;\n",
+    "replace": "",
+    "expectFailing": "Update price sends the product id the line's card has"
+  },
+  {
+    "guard": "a signed-out line the page redrew is marked again",
+    "file": "src/cartpage.js",
+    "find": "!(l.host || l.details) || (l.host && l.host.querySelector(",
+    "replace": "!l.host || (l.host && l.host.querySelector(",
+    "expectFailing": "a signed-out line the page redrew is marked again"
   }
 ]

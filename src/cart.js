@@ -66,6 +66,7 @@ globalThis.CKB = globalThis.CKB || {};
     var each = SIDES[side].each.exec(text(price && price.querySelector("small")));
     var total = price && (side === "buy" ? text(price.querySelector(".cart-item-price")) : firstText(price));
     var img = wrapper.querySelector("img[alt]");
+    var header = wrapper.querySelector(".item-content-header");
     // The sell cart buys near mint only; the buy cart names each line's.
     var condition = side === "buy" ? text(wrapper.querySelector(".style")) : "NM";
 
@@ -73,6 +74,8 @@ globalThis.CKB = globalThis.CKB || {};
       wrapper: wrapper,
       form: found.form,
       host: wrapper.querySelector(".save-for-later-button"),
+      // Where a line with no Save for Later (a signed-out cart) is marked.
+      details: wrapper.querySelector(".cart-item-details"),
       lineID: found.id,
       productID: /^\d+$/.test(id) ? Number(id) : null,
       qty: qty && /^[1-9]\d*$/.test(qty.value) ? Number(qty.value) : null,
@@ -82,17 +85,21 @@ globalThis.CKB = globalThis.CKB || {};
       alt: img ? img.getAttribute("alt").trim() : "",
       // CK's own FOIL label under the card's title.
       foil: !!wrapper.querySelector("div.foil"),
+      // The card as the line titles it, variation and all, and its edition
+      // without the rarity after it or the " Foil" the label already says.
+      name: text(header && header.querySelector(".title")),
+      edition: text(header && header.querySelector(".edition")).replace(/ \([A-Z]\)$/, "").replace(/ Foil$/, ""),
       problem: "",
     };
-    if (line.productID === null) {
-      line.problem = "no product id";
-    } else if (line.qty === null) {
+    // A line with no product id (a signed-out cart has no Save for Later to
+    // carry one) is still readable: the price list finds it by its card.
+    if (line.qty === null) {
       line.problem = "no quantity";
     } else if (line.each === null || line.total === null) {
       line.problem = "no price";
     } else if (line.total !== line.qty * line.each) {
       line.problem = "its total is not its quantity times its price";
-    } else if (!line.alt) {
+    } else if (!line.name || !line.edition) {
       line.problem = "no card name";
     } else if (line.condition === null) {
       line.problem = "no condition";

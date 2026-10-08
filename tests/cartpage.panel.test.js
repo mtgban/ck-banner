@@ -1,5 +1,5 @@
 import { test, expect, describe } from "bun:test";
-import { CKB } from "./helpers.js";
+import { CKB, docOf, text } from "./helpers.js";
 import { mountCart, pricelist } from "./panel.js";
 
 const SELL_IDS = [206649, 224590, 50270, 195917, 256544, 307429, 320150, 221214, 256266, 238255];
@@ -636,5 +636,53 @@ describe("Update all", () => {
     expect(it.reloads).toEqual([]);
     expect(it.busy()).toBe(false);
     expect(it.all().querySelector("button").textContent).toBe("Update prices");
+  });
+});
+
+describe("a signed-out cart", () => {
+  // The sell cart as a visitor who is not signed in sees it: no Save for
+  // Later anywhere, so no line carries its product id.
+  function signedOut() {
+    const doc = docOf(text("sell-cart.html"));
+    doc.querySelectorAll(".save-for-later-button").forEach((box) => box.remove());
+    return doc.body.innerHTML;
+  }
+
+  test("is marked by each line's card, in boxes of its own", async () => {
+    const it = await mountCart({ body: signedOut(), prices: moved() });
+    it.button().click();
+    await it.idle();
+    expect(it.mark(206649)).toMatchObject({ verdict: "better", badge: "Update price", first: true });
+    expect(it.mark(224590)).toMatchObject({ verdict: "worse", badge: "Keep price" });
+    expect(it.mark(50270).verdict).toBe("wants0");
+    expect(it.window.document.querySelectorAll(".cart-item-details > .ck-banner-own").length).toBe(it.marks().length);
+  });
+
+  test("Update price sends the product id the line's card has", async () => {
+    const answer = {
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          lineitems: [{ id: 5550001, product_id: 206649, style: "NM", qty: 1, price: "28.50", product: { price_buy: "28.50" } }],
+        }),
+    };
+    const it = await mountCart({ body: signedOut(), prices: moved(), writes: () => Promise.resolve(answer) });
+    it.button().click();
+    await it.idle();
+    it.update(206649).click();
+    await it.idle();
+    expect(it.written.map((w) => w.body)).toEqual(['{"product_id":"206649","style":"NM","quantity":1}']);
+    expect(it.reloads.length).toBe(1);
+  });
+
+  test("a signed-out line the page redrew is marked again", async () => {
+    const it = await mountCart({ body: signedOut(), prices: moved() });
+    it.button().click();
+    await it.idle();
+    // Synthetic: the page redraws the line's details, taking the box along.
+    it.window.document.querySelector('.ck-banner-line[data-product="224590"]').closest(".ck-banner-own").remove();
+    await it.settle(400);
+    expect(it.mark(224590).badge).toBe("Keep price");
   });
 });

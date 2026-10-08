@@ -34,6 +34,7 @@ describe("the sell cart", () => {
     expect(verdictOf(sellLines(), listWith({ 206649: { price_buy: "28.50" } }), "sell", 206649)).toEqual({
       verdict: "better",
       price: 2850,
+      id: 206649,
     });
   });
 
@@ -41,6 +42,7 @@ describe("the sell cart", () => {
     expect(verdictOf(sellLines(), listWith({ 206649: { price_buy: "26.99" } }), "sell", 206649)).toEqual({
       verdict: "worse",
       price: 2699,
+      id: 206649,
     });
   });
 
@@ -74,12 +76,12 @@ describe("the buy cart", () => {
 
   test("the list asking less for the line's condition is a price drop", () => {
     const list = listWith({ 10202: { condition_values: { vg_price: "1.50" } } });
-    expect(verdictOf(buyLines(), list, "buy", 10202)).toEqual({ verdict: "dropped", price: 150 });
+    expect(verdictOf(buyLines(), list, "buy", 10202)).toEqual({ verdict: "dropped", price: 150, id: 10202 });
   });
 
   test("the list asking more is higher", () => {
     const list = listWith({ 10202: { condition_values: { vg_price: "1.99" } } });
-    expect(verdictOf(buyLines(), list, "buy", 10202)).toEqual({ verdict: "raised", price: 199 });
+    expect(verdictOf(buyLines(), list, "buy", 10202)).toEqual({ verdict: "raised", price: 199, id: 10202 });
   });
 
   test("only the line's own condition counts", () => {
@@ -99,33 +101,74 @@ describe("the buy cart", () => {
 });
 
 describe("telling a line's card", () => {
-  // The EX Mutavault on a real buy cart: its image says
-  // "Promotional: Mutavault (Extended Art Foil)", with no Foil after the
-  // edition, and its row is a foil.
-  function mutavault() {
+  // The EX Mutavault on a real buy cart: its edition reads "Promotional
+  // (S)", with no Foil, beside the title "Mutavault (Extended Art Foil)",
+  // and its row is a foil. edition is the list row's.
+  function mutavault(edition = "Promotional") {
     const body = JSON.parse(text("pricelist.json"));
     body.data.push({
       ...body.data[0],
       id: 190519,
       name: "Mutavault",
-      edition: "Promotional",
+      edition,
       variation: "Extended Art Foil",
       is_foil: "true",
       condition_values: { nm_price: "749.99", nm_qty: 0, ex_price: "629.99", ex_qty: 9, vg_price: "599.99", vg_qty: 4, g_price: "524.99", g_qty: 0 },
     });
     return CKB.reducePrices(body, NOW);
   }
-  const line = { problem: "", productID: 190519, alt: "Promotional: Mutavault (Extended Art Foil)", foil: true, each: 62999, qty: 5, condition: "EX" };
+  const line = {
+    problem: "",
+    productID: 190519,
+    name: "Mutavault (Extended Art Foil)",
+    edition: "Promotional",
+    alt: "Promotional: Mutavault (Extended Art Foil)",
+    foil: true,
+    each: 62999,
+    qty: 5,
+    condition: "EX",
+  };
 
-  test("a foil whose image leaves the edition plain is its own card", () => {
+  test("a foil whose edition is written plain is its own card", () => {
     expect(CKB.compare(line, mutavault(), "buy").verdict).toBe("same");
   });
 
-  test("a foil whose image writes Foil after the edition is its own card too", () => {
-    expect(CKB.compare({ ...line, alt: "Promotional Foil: Mutavault (Extended Art Foil)" }, mutavault(), "buy").verdict).toBe("same");
+  test("a foil whose list edition says Foil is its own card too", () => {
+    expect(CKB.compare(line, mutavault("Promotional Foil"), "buy").verdict).toBe("same");
   });
 
   test("a line without the FOIL label is not the foil row", () => {
     expect(CKB.compare({ ...line, foil: false }, mutavault(), "buy").verdict).toBe("mismatch");
+  });
+
+  test("a long name cut short in the image is still its card", () => {
+    // CK ends a long alt text with "...", so the card is read from the title.
+    expect(CKB.compare({ ...line, alt: "Promotional: Mutav..." }, mutavault(), "buy").verdict).toBe("same");
+  });
+});
+
+describe("a line with no product id", () => {
+  // As on a signed-out cart, which has no Save for Later to carry one.
+  const unnamed = () => sellLines().map((l) => ({ ...l, productID: null }));
+
+  test("is found by its card", () => {
+    expect(CKB.compare(unnamed()[0], listWith({ 206649: { price_buy: "28.50" } }), "sell")).toEqual({
+      verdict: "better",
+      price: 2850,
+      id: 206649,
+    });
+    const list = listWith();
+    expect(unnamed().map((l) => CKB.compare(l, list, "sell").id)).toEqual(sellLines().map((l) => l.productID));
+  });
+
+  test("is not listed when the list has no row of its card", () => {
+    expect(CKB.compare(unnamed()[0], listWith({}, [206649]), "sell")).toEqual({ verdict: "unlisted" });
+  });
+
+  test("is not listed when two rows are its card", () => {
+    // Synthetic: a second row of the same card under another id.
+    const body = JSON.parse(text("pricelist.json"));
+    body.data.push({ ...body.data.find((r) => r.id === 206649), id: 999001 });
+    expect(CKB.compare(unnamed()[0], CKB.reducePrices(body, NOW), "sell")).toEqual({ verdict: "unlisted" });
   });
 });
