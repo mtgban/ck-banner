@@ -353,7 +353,8 @@ to a synthetic one on the same origin. Statuses stay as printed. A cart keeps
 CK's markup and none of the account's items: each line is refilled with an
 item drawn at random (seeded) from a price list, at that list's price for the
 line's shape and condition, with line ids renumbered, every `_token`
-replaced, and the item count and Subtotal recomputed. The
+replaced, and the item count and Subtotal recomputed. The sell cart keeps its
+sidebar's Checkout and Empty Cart buttons and none of its figures. The
 script checks its own output for an id, an address line or a link it should
 have removed, and writes nothing if it finds one. `tests/repo.test.js` scans every
 fixture for what a cut must never keep.
