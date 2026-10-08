@@ -244,6 +244,7 @@ export async function mountCart({ side = "sell", path, body, prices = pricelist(
     all: () => doc.querySelector(".ck-banner-all"),
     csv: () => at$(".ck-banner-csv"),
     file: async (i = 0) => ({ name: saved[i].name, text: await saved[i].blob.text() }),
+    saved: () => saved,
     focused: () => doc.activeElement,
     busy: () => panel.classList.contains("ck-banner-busy"),
     failed: () => !at$(".ck-banner-mark").hidden && at$(".ck-banner-mark").classList.contains("ck-banner-failed"),

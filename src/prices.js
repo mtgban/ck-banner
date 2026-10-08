@@ -20,7 +20,7 @@ globalThis.CKB = globalThis.CKB || {};
   CKB.LIST_UNREADABLE = "Card Kingdom's price list could not be read";
 
   // The version of the kept shape; a kept list of another is read as none.
-  CKB.LIST_VERSION = 2;
+  CKB.LIST_VERSION = 3;
 
   CKB.CONDITIONS = ["NM", "EX", "VG", "G"];
 
@@ -49,6 +49,32 @@ globalThis.CKB = globalThis.CKB || {};
     return h | 0;
   };
 
+  var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+  // scryfallWords is a Scryfall id as four 32-bit words, all zero (the nil
+  // id, which Scryfall never gives a card) when the row has none or a
+  // malformed one; the row is kept either way.
+  function scryfallWords(value) {
+    if (typeof value !== "string" || !UUID.test(value)) {
+      return [0, 0, 0, 0];
+    }
+    var hex = value.replace(/-/g, "");
+    return [0, 8, 16, 24].map(function (at) {
+      return parseInt(hex.slice(at, at + 8), 16) | 0;
+    });
+  }
+
+  function scryfallAt(list, i) {
+    var hex = "";
+    for (var w = 0; w < 4; w++) {
+      hex += (list.scryfall[w][i] >>> 0).toString(16).padStart(8, "0");
+    }
+    if (hex === "00000000000000000000000000000000") {
+      return "";
+    }
+    return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
+  }
+
   function count(value) {
     return typeof value === "number" && value >= 0 && value === Math.floor(value) ? value : null;
   }
@@ -67,6 +93,7 @@ globalThis.CKB = globalThis.CKB || {};
         ? CKB.cardKey(CKB.listName(row), row.is_foil === "true") : null,
       buy: CKB.listCents(row.price_buy),
       wants: count(row.qty_buying),
+      scryfall: scryfallWords(row.scryfall_id),
       retail: {},
       stock: {},
     };
@@ -85,8 +112,9 @@ globalThis.CKB = globalThis.CKB || {};
   }
 
   // reducePrices keeps, for every well-formed row, sorted by id: the name
-  // key, the buy price and quantity the sell cart is compared with, and each
-  // condition's retail price and stock for the buy cart. A malformed row is
+  // key, the buy price and quantity the sell cart is compared with, each
+  // condition's retail price and stock for the buy cart, and the Scryfall id
+  // the carts' CSV names. A malformed row is
   // skipped and counted; an id listed twice is dropped altogether, since
   // which of its rows is right cannot be told.
   CKB.reducePrices = function (body, now) {
@@ -130,6 +158,7 @@ globalThis.CKB = globalThis.CKB || {};
       names: new Int32Array(n),
       buy: new Int32Array(n),
       wants: new Int32Array(n),
+      scryfall: [new Int32Array(n), new Int32Array(n), new Int32Array(n), new Int32Array(n)],
       retail: {},
       stock: {},
     };
@@ -142,6 +171,9 @@ globalThis.CKB = globalThis.CKB || {};
       list.names[k] = unique[k].name;
       list.buy[k] = unique[k].buy;
       list.wants[k] = unique[k].wants;
+      for (var w = 0; w < 4; w++) {
+        list.scryfall[w][k] = unique[k].scryfall[w];
+      }
       for (var m = 0; m < CKB.CONDITIONS.length; m++) {
         var cond = CKB.CONDITIONS[m];
         list.retail[cond][k] = unique[k].retail[cond];
@@ -193,7 +225,15 @@ globalThis.CKB = globalThis.CKB || {};
     while (lo <= hi) {
       var mid = (lo + hi) >> 1;
       if (list.ids[mid] === id) {
-        var row = { id: id, name: list.names[mid], buy: list.buy[mid], wants: list.wants[mid], retail: {}, stock: {} };
+        var row = {
+          id: id,
+          name: list.names[mid],
+          buy: list.buy[mid],
+          wants: list.wants[mid],
+          scryfall: scryfallAt(list, mid),
+          retail: {},
+          stock: {},
+        };
         for (var i = 0; i < CKB.CONDITIONS.length; i++) {
           row.retail[CKB.CONDITIONS[i]] = list.retail[CKB.CONDITIONS[i]][mid];
           row.stock[CKB.CONDITIONS[i]] = list.stock[CKB.CONDITIONS[i]][mid];

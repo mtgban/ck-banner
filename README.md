@@ -12,7 +12,7 @@
 - **On the buy cart** (`/cart`) it does the same the other way round: each line
   is checked against the list's price for its condition, and a line the list
   now sells for less is marked as a price drop. Both carts work signed out,
-  and either can be saved as a CSV at any time.
+  and either can be saved as a CSV, with each card's Scryfall id.
 - **On order and selling history** (`/myaccount/order_history`,
   `/myaccount/selling_history`) you pick a year and download a CSV of every
   paid purchase that shipped, or every paid sale that was completed, one row
