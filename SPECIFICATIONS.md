@@ -96,7 +96,7 @@ each row has `id`, `sku`, `scryfall_id`, `url`, `name`, `variation`,
 `condition_values`.
 
 The list is about 70 MB and 151,000 rows (the 2026-09-17 list). On arrival
-it is reduced to arrays sorted by id, about 7 MB: `price_buy` in integer
+it is reduced to arrays sorted by id, about 10 MB: `price_buy` in integer
 cents and `qty_buying` for the sell cart; each condition's retail price and
 quantity from `condition_values` for the buy cart; and a 32-bit key of the
 card, `Edition: Name[ (Variation)]` and whether it is foil, which checks
@@ -106,12 +106,16 @@ Set Foil") or leaves it plain ("Promotional", for "Mutavault (Extended Art
 Foil)"), so the key drops a " Foil" ending the edition on both sides and
 takes foil from the line's own FOIL label. On every line of five saved carts
 (198 lines, 122 of them signed out) the cards matched that way, and on the
-signed-in ones the label agreed with `is_foil`. Prices must be plain dollars and at most two decimals. A row with
+signed-in ones the label agreed with `is_foil`. The row's `scryfall_id` is
+kept too, as four 32-bit words, for the carts' CSV (section 11); a row with
+none or a malformed one keeps no id and is not skipped for it. On the
+2026-09-17 list 149,897 rows had an id, 1,584 had none and 6 had a malformed
+one. Prices must be plain dollars and at most two decimals. A row with
 any field of another shape is skipped and counted, and an id listed twice is
 dropped altogether, since which of its rows is right cannot be told. On the
 2026-09-17 list every one of the 151,487 rows was kept, every name was
-distinct and no two names shared a key; parsing and reducing took about a
-quarter of a second in bun. A read that has not finished in two minutes fails. `created_at` is kept and shown, so a reader can tell "CK changed
+distinct and no two names shared a key; parsing and reducing took about
+0.4 s in bun. A read that has not finished in two minutes fails. `created_at` is kept and shown, so a reader can tell "CK changed
 the price" from "the list is older than the cart".
 
 Singles only. Sealed lines are not compared until a saved cart with one has
@@ -304,12 +308,16 @@ same rows: a value is quoted only when it holds a comma, a quote or a line
 break, a quote is doubled, and every row ends in LF. No address and
 nothing from a tracking link.
 
-The carts' *CSV* writes the cart as it stands, list or no list, one row per
-line in the page's order, as `ck-sell-cart.csv` or `ck-buy-cart.csv`, with
-the same writing. Its columns are named so that mtgban's uploader reads them:
+The carts' *CSV* writes the cart as it stands, one row per line in the
+page's order, with each line's Scryfall id from the list in hand, of any
+age, since an id does not go stale. Until a list is in hand, kept or read,
+it is greyed out. It is saved as `ck-sell-cart.csv` or
+`ck-buy-cart.csv`, with the same writing. Its columns are named so that
+mtgban's uploader reads them:
 
 | Column | From the line |
 |--------|---------------|
+| `Scryfall ID` | the list's `scryfall_id` for the line's product id, when its row is the line's card (the check in section 6); empty otherwise |
 | `Name` | its title (`.title`), variation and all |
 | `Edition` | its edition (`.edition`), without the rarity after it or a trailing " Foil" |
 | `Foil` | `Yes` when CK's FOIL label is there, else `No` |
@@ -370,7 +378,7 @@ the year changes. At these addresses a page without the history table (a
 sign-in page) gets no panel.
 
 On the carts the row is *Load prices*, then *Refresh* once the cart is
-marked, and *CSV* (section 11), which saves the cart at any time; the list is read only on that click, and *Refresh* is greyed
+marked, and *CSV* (section 11), greyed out until a list is in hand; the list is read only on that click, and *Refresh* is greyed
 out while the list in hand is fresh, since reading it again would change
 nothing, until the hour runs out. While it reads the heading says `fetching
 prices`. Done, the heading counts the lines the list now favours in the same

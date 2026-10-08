@@ -43,20 +43,45 @@ describe("the panel", () => {
 });
 
 describe("the cart's CSV", () => {
-  test("saves the sell cart as it stands, with no list read", async () => {
+  test("is greyed out until a list is in hand, then saves the sell cart", async () => {
     const it = await mountCart();
+    expect(it.csv().disabled).toBe(true);
+    it.csv().click();
+    await it.idle();
+    expect([it.asked.length, it.saved().length]).toEqual([0, 0]);
+    it.button().click();
+    await it.idle();
+    expect(it.csv().disabled).toBe(false);
     it.csv().click();
     const file = await it.file();
     expect(file.name).toBe("ck-sell-cart.csv");
     expect(file.text.split("\n").slice(0, 2)).toEqual([
-      "Name,Edition,Foil,Condition,Quantity,Price,Total,CK ID",
-      "Necropotence,Eternal Masters,No,NM,1,27.00,27.00,206649",
+      "Scryfall ID,Name,Edition,Foil,Condition,Quantity,Price,Total,CK ID",
+      "57ffb8ad-d8b4-4764-bbb0-ca4106080a90,Necropotence,Eternal Masters,No,NM,1,27.00,27.00,206649",
     ]);
+    expect(it.asked.length).toBe(1);
+  });
+
+  test("is ready on load with a kept list", async () => {
+    const it = await mountCart({ kept: CKB.reducePrices(pricelist(), Date.now()) });
+    expect(it.csv().disabled).toBe(false);
+    it.csv().click();
+    expect((await it.file()).text.split("\n")[1].startsWith("57ffb8ad-d8b4-4764-bbb0-ca4106080a90,")).toBe(true);
     expect(it.asked).toEqual([]);
+  });
+
+  test("stays greyed when the list cannot be read", async () => {
+    const it = await mountCart({ respond: (resolve) => resolve({ ok: false, status: 503, json: () => Promise.resolve({}) }) });
+    it.button().click();
+    await it.idle();
+    expect(it.failed()).toBe(true);
+    expect(it.csv().disabled).toBe(true);
   });
 
   test("saves the buy cart under its own name", async () => {
     const it = await mountCart({ side: "buy" });
+    it.button().click();
+    await it.idle();
     it.csv().click();
     expect((await it.file()).name).toBe("ck-buy-cart.csv");
   });

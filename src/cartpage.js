@@ -3,7 +3,8 @@
 //
 // The list is read only on a click and kept for an hour (store.js); a cart
 // opened while a kept list is fresh is marked at once, with no request. CSV
-// saves the cart as it stands, list or no list. The
+// saves the cart as it stands, with each line's Scryfall id from the list,
+// once there is one in hand. The
 // one thing that changes a cart is Update price on a better sell line
 // (update.js), CK's answer deciding what happened: one line per click, or
 // every better line in turn from Update all, under Empty Cart.
@@ -40,6 +41,7 @@
 
   var panel = null;
   var button = null;
+  var csv = null;
   var list = null;
   var reading = null;
   var shown = "";
@@ -438,9 +440,11 @@
 
   // refreshable greys Refresh out while the list in hand is fresh, since
   // reading it again would change nothing, and brings it back as it ages.
+  // A marked cart has a list in hand, so CSV is ready.
   function refreshable() {
     var left = list ? list.fetchedAt + CKB.LIST_TTL - Date.now() : 0;
     button.disabled = left > 0;
+    csv.disabled = false;
     clearTimeout(expiry);
     if (left > 0) {
       expiry = setTimeout(refreshable, left);
@@ -477,10 +481,21 @@
   }
 
   function idle() {
+    csv.disabled = true;
     panel.jump(null);
     panel.word("prices");
     panel.clear();
     panel.hint("Compare this cart with Card Kingdom's price list, read once and kept for an hour");
+  }
+
+  // saveCSV writes the cart as it stands, each line with its Scryfall id
+  // from the list in hand, of any age since ids do not go stale. It is
+  // greyed out until a list is in hand.
+  function saveCSV() {
+    if (reading || writing) {
+      return;
+    }
+    CKB.download(CKB.cartCSV(CKB.readCart(document, location.href, side), list), "ck-" + side + "-cart.csv");
   }
 
   function check() {
@@ -565,14 +580,11 @@
     button.textContent = "Load prices";
     button.addEventListener("click", check);
     panel.actions.appendChild(button);
-    // The cart as it stands, list or no list.
-    var csv = document.createElement("button");
+    csv = document.createElement("button");
     csv.type = "button";
     csv.className = "ck-banner-go ck-banner-csv";
     csv.textContent = "CSV";
-    csv.addEventListener("click", function () {
-      CKB.download(CKB.cartCSV(CKB.readCart(document, location.href, side)), "ck-" + side + "-cart.csv");
-    });
+    csv.addEventListener("click", saveCSV);
     panel.actions.appendChild(csv);
     panel.root.hidden = !CKB.readCart(document, location.href, side).length;
     document.body.appendChild(panel.root);

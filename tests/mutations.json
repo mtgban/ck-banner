@@ -691,5 +691,47 @@
     "find": ".replace(/ Foil$/, \"\")",
     "replace": "",
     "expectFailing": "writes each sell line as the page shows it"
+  },
+  {
+    "guard": "a kept list needs its Scryfall ids",
+    "file": "src/store.js",
+    "find": "list.scryfall : [null]);",
+    "replace": "[] : []);",
+    "expectFailing": "a missing or retyped array makes it missing"
+  },
+  {
+    "guard": "a malformed Scryfall id is none",
+    "file": "src/prices.js",
+    "find": "if (typeof value !== \"string\" || !UUID.test(value)) {",
+    "replace": "if (typeof value !== \"string\") {",
+    "expectFailing": "leaves the Scryfall id out where the list has none or a malformed one"
+  },
+  {
+    "guard": "a Scryfall id is given only for the line's own card",
+    "file": "src/csv.js",
+    "find": "    return list ? CKB.rowFor(l, list).row || null : null;",
+    "replace": "    return list && l.productID !== null ? CKB.lookup(list, l.productID) : null;",
+    "expectFailing": "leaves the Scryfall id out with no list, or a row naming another card"
+  },
+  {
+    "guard": "CSV is ready once the cart is marked",
+    "file": "src/cartpage.js",
+    "find": "    csv.disabled = false;",
+    "replace": "    csv.disabled = true;",
+    "expectFailing": "is ready on load with a kept list"
+  },
+  {
+    "guard": "CSV starts greyed",
+    "file": "src/cartpage.js",
+    "find": "    csv.disabled = true;\n",
+    "replace": "",
+    "expectFailing": "is greyed out until a list is in hand, then saves the sell cart"
+  },
+  {
+    "guard": "a signed-out line's CK ID is its card's",
+    "file": "src/csv.js",
+    "find": "      return row ? row.id : l.productID;",
+    "replace": "      return l.productID;",
+    "expectFailing": "gives a line with no product id both ids from its card"
   }
 ]

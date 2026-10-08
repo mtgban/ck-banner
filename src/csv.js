@@ -58,11 +58,23 @@ globalThis.CKB = globalThis.CKB || {};
     return cents === null ? "" : Math.floor(cents / 100) + "." + String(cents % 100).padStart(2, "0");
   }
 
+  // rowOf is the price list's row for a line as a comparison finds it: the
+  // one its product id names, when that is the line's card, or, for a line
+  // with no id (a signed-out cart), the one row of its card.
+  function rowOf(l, list) {
+    return list ? CKB.rowFor(l, list).row || null : null;
+  }
+
   // The cart file's columns, named so that mtgban's uploader reads them: the
-  // line as the page shows it, prices in plain dollars, and the product id
-  // the price list knows it by. A line the page could not read whole is
+  // Scryfall id of the line's row in the price list, then the line as the
+  // page shows it, prices in plain dollars, and the product id, the row's
+  // when the page gives none. A line the page could not read whole is
   // written with what was read.
   var CART = [
+    ["Scryfall ID", function (l, list) {
+      var row = rowOf(l, list);
+      return row ? row.scryfall : "";
+    }],
     ["Name", function (l) { return l.name; }],
     ["Edition", function (l) { return l.edition; }],
     ["Foil", function (l) { return l.foil ? "Yes" : "No"; }],
@@ -70,16 +82,20 @@ globalThis.CKB = globalThis.CKB || {};
     ["Quantity", function (l) { return l.qty; }],
     ["Price", function (l) { return decimal(l.each); }],
     ["Total", function (l) { return decimal(l.total); }],
-    ["CK ID", function (l) { return l.productID; }],
+    ["CK ID", function (l, list) {
+      var row = rowOf(l, list);
+      return row ? row.id : l.productID;
+    }],
   ];
 
-  // cartCSV writes a cart's lines, as readCart reads them, in the page's order.
-  CKB.cartCSV = function (lines) {
+  // cartCSV writes a cart's lines, as readCart reads them, in the page's
+  // order, with each line's Scryfall id from list when one is given.
+  CKB.cartCSV = function (lines, list) {
     return table(CART.map(function (column) {
       return column[0];
     }), lines.map(function (l) {
       return CART.map(function (column) {
-        return column[1](l);
+        return column[1](l, list);
       });
     }));
   };

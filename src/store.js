@@ -93,7 +93,8 @@ globalThis.CKB = globalThis.CKB || {};
   };
 
   function arrays(list) {
-    var all = [list.ids, list.names, list.buy, list.wants];
+    var all = [list.ids, list.names, list.buy, list.wants].concat(Array.isArray(list.scryfall) && list.scryfall.length === 4 ?
+      list.scryfall : [null]);
     for (var i = 0; i < CKB.CONDITIONS.length; i++) {
       all.push(list.retail && list.retail[CKB.CONDITIONS[i]], list.stock && list.stock[CKB.CONDITIONS[i]]);
     }

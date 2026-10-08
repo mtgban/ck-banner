@@ -85,6 +85,8 @@ describe("a kept list of the wrong shape", () => {
     expect(CKB.fresh({ ...l, buy: [...l.buy] }, NOW)).toBe(false);
     expect(CKB.fresh({ ...l, retail: { ...l.retail, G: undefined } }, NOW)).toBe(false);
     expect(CKB.fresh({ ...l, wants: l.wants.slice(1) }, NOW)).toBe(false);
+    expect(CKB.fresh({ ...l, scryfall: undefined }, NOW)).toBe(false);
+    expect(CKB.fresh({ ...l, scryfall: l.scryfall.slice(1) }, NOW)).toBe(false);
   });
 
   test("nothing kept is nothing", () => {
