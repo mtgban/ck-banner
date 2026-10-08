@@ -10,8 +10,32 @@ globalThis.CKB = globalThis.CKB || {};
 (function (CKB) {
   "use strict";
 
-  // compare answers with { verdict, price }, price being the list's price
-  // each in cents wherever the line was compared.
+  // lineKey is the card a line shows, by its edition and title. The image's
+  // alt text names it too, but CK cuts a long one short with "...".
+  CKB.lineKey = function (line) {
+    return CKB.cardKey(line.edition + ": " + line.name, line.foil);
+  };
+
+  // rowFor is the list's row for a line, or the verdict saying why there is
+  // none: the row its product id names, which must be the card the line
+  // shows, or, for a line with no product id (a signed-out cart), the one
+  // row of that card.
+  CKB.rowFor = function (line, list) {
+    var key = CKB.lineKey(line);
+    if (line.productID === null) {
+      var found = CKB.findCard(list, key);
+      return found ? { row: found } : { verdict: "unlisted" };
+    }
+    var row = CKB.lookup(list, line.productID);
+    if (!row) {
+      return { verdict: "unlisted" };
+    }
+    return row.name === key ? { row: row } : { verdict: "mismatch" };
+  };
+
+  // compare answers with { verdict, price, id }, price being the list's
+  // price each in cents and id the line's product id wherever the line was
+  // compared.
   //
   // Sell: unreadable, unlisted, mismatch, wants0, better, worse, same.
   // Buy:  unreadable, unlisted, mismatch, nostock, dropped, raised, same.
@@ -19,27 +43,24 @@ globalThis.CKB = globalThis.CKB || {};
     if (line.problem) {
       return { verdict: "unreadable" };
     }
-    var row = CKB.lookup(list, line.productID);
-    if (!row) {
-      return { verdict: "unlisted" };
+    var found = CKB.rowFor(line, list);
+    if (!found.row) {
+      return found;
     }
-    // The id must point at the card the line shows.
-    if (row.name !== CKB.cardKey(line.alt, line.foil)) {
-      return { verdict: "mismatch" };
-    }
+    var row = found.row;
 
     if (side === "sell") {
       if (row.wants === 0) {
-        return { verdict: "wants0", price: row.buy };
+        return { verdict: "wants0", price: row.buy, id: row.id };
       }
       var pays = row.buy;
-      return { verdict: pays > line.each ? "better" : pays < line.each ? "worse" : "same", price: pays };
+      return { verdict: pays > line.each ? "better" : pays < line.each ? "worse" : "same", price: pays, id: row.id };
     }
 
     var asks = row.retail[line.condition];
     if (row.stock[line.condition] === 0) {
-      return { verdict: "nostock", price: asks };
+      return { verdict: "nostock", price: asks, id: row.id };
     }
-    return { verdict: asks < line.each ? "dropped" : asks > line.each ? "raised" : "same", price: asks };
+    return { verdict: asks < line.each ? "dropped" : asks > line.each ? "raised" : "same", price: asks, id: row.id };
   };
 })(globalThis.CKB);

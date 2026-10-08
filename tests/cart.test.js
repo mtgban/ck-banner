@@ -10,8 +10,8 @@ const readBuy = (doc) => CKB.readCart(doc, BUY, "buy");
 
 // plain is a line without its DOM nodes. A failing expect on an object that
 // holds one prints the whole window, which bun does not survive.
-const plain = ({ productID, lineID, qty, each, total, condition, alt, problem }) => ({
-  productID, lineID, qty, each, total, condition, alt, problem,
+const plain = ({ productID, lineID, qty, each, total, condition, alt, name, edition, problem }) => ({
+  productID, lineID, qty, each, total, condition, alt, name, edition, problem,
 });
 
 // line is the wrapper of the cart line for a product id.
@@ -169,9 +169,17 @@ describe("reading a line", () => {
     expect(readSell(doc)[0].problem).toBe("no price");
   });
 
-  test("a line with no product id is unreadable", () => {
+  test("a line with no product id is read whole, to be found by its card", () => {
+    // A signed-out cart has no Save for Later, and so no product id.
     const doc = sell();
-    line(doc, 206649).querySelector(".save-for-later-button a").removeAttribute("data-ckproductid");
-    expect(plain(readSell(doc)[0])).toMatchObject({ productID: null, problem: "no product id" });
+    line(doc, 206649).querySelector(".save-for-later-button").remove();
+    expect(plain(readSell(doc)[0])).toMatchObject({ productID: null, problem: "", name: "Necropotence", edition: "Eternal Masters" });
+  });
+
+  test("the card is its title and its edition, rarity and Foil aside", () => {
+    expect(readSell(sell()).slice(0, 2).map((l) => [l.name, l.edition, l.foil])).toEqual([
+      ["Necropotence", "Eternal Masters", false],
+      ["Bleeding Edge", "War of the Spark", true],
+    ]);
   });
 });

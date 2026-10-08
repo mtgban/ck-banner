@@ -24,17 +24,17 @@ globalThis.CKB = globalThis.CKB || {};
 
   CKB.CONDITIONS = ["NM", "EX", "VG", "G"];
 
-  // listName is a row's card as the carts' images name it, foil aside:
-  // "Edition: Name[ (Variation)]".
+  // listName is a row's card as a cart line's edition and title name it, foil
+  // aside: "Edition: Name[ (Variation)]".
   CKB.listName = function (row) {
     return row.edition + ": " + row.name + (row.variation ? " (" + row.variation + ")" : "");
   };
 
-  // cardKey folds a card's name and whether it is foil into 32 bits, enough
-  // to tell a cart line's card from the list row its id points at. An image
-  // writes a foil's edition as "2015 Core Set Foil" or leaves it plain, as
-  // for "Promotional: Mutavault (Extended Art Foil)", so a " Foil" before
-  // the edition's colon is dropped and foil is told by the line's own label.
+  // cardKey folds a card's "Edition: Name[ (Variation)]" and whether it is
+  // foil into 32 bits, enough to tell a cart line's card from the list row
+  // its id points at, or to find that row without an id. A " Foil" ending
+  // the edition is dropped, as the list's foil editions are written both
+  // ways, and foil is told by the line's own label.
   CKB.cardKey = function (name, foil) {
     return CKB.nameKey(name.replace(/ Foil(?=: )/g, "") + (foil ? "|foil" : ""));
   };
@@ -149,6 +149,41 @@ globalThis.CKB = globalThis.CKB || {};
       }
     }
     return list;
+  };
+
+  // byName holds, per list, its row numbers sorted by card key, built the
+  // first time a line is looked for by its card and never kept with it.
+  var byName = new WeakMap();
+
+  // findCard is the kept row of the one card with key, or null when no row
+  // has it or more than one does.
+  CKB.findCard = function (list, key) {
+    var order = byName.get(list);
+    if (!order) {
+      order = new Int32Array(list.names.length);
+      for (var i = 0; i < order.length; i++) {
+        order[i] = i;
+      }
+      order.sort(function (a, b) {
+        return list.names[a] - list.names[b];
+      });
+      byName.set(list, order);
+    }
+    var lo = 0;
+    var hi = order.length;
+    while (lo < hi) {
+      var mid = (lo + hi) >> 1;
+      if (list.names[order[mid]] < key) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    if (lo >= order.length || list.names[order[lo]] !== key ||
+        (lo + 1 < order.length && list.names[order[lo + 1]] === key)) {
+      return null;
+    }
+    return CKB.lookup(list, list.ids[order[lo]]);
   };
 
   // lookup is the kept row for a product id, or null when the list has none.

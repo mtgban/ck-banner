@@ -96,23 +96,33 @@
 
   // mark puts one line's badge and tooltip first in its Save for Later box,
   // beside the link and never inside it, replacing any mark already there.
+  // A signed-out line has no such box, so its mark gets one of its own in
+  // the same place, taken away again when the line needs no mark.
   function mark(line, result) {
-    if (!line.host) {
+    var host = line.host;
+    if (host) {
+      var old = host.querySelectorAll(".ck-banner-line");
+      for (var i = 0; i < old.length; i++) {
+        old[i].remove();
+      }
+      if (result.verdict === "same" && host.classList.contains("ck-banner-own")) {
+        host.remove();
+      }
+    }
+    if (result.verdict === "same" || (!host && !line.details)) {
       return;
     }
-    var old = line.host.querySelectorAll(".ck-banner-line");
-    for (var i = 0; i < old.length; i++) {
-      old[i].remove();
-    }
-    if (result.verdict === "same") {
-      return;
+    if (!host) {
+      host = document.createElement("div");
+      host.className = "save-for-later-button text-right ck-banner-own";
+      line.details.appendChild(host);
     }
     // The box lays its controls out in one row, the mark left of the link.
-    line.host.classList.add("ck-banner-host");
+    host.classList.add("ck-banner-host");
     var box = document.createElement("div");
     box.className = "ck-banner-line";
     box.setAttribute("data-line", String(line.lineID));
-    box.setAttribute("data-product", String(line.productID));
+    box.setAttribute("data-product", String(result.id || line.productID));
     box.setAttribute("data-verdict", result.verdict);
 
     var badge;
@@ -138,7 +148,7 @@
 
     box.appendChild(badge);
     box.appendChild(tip);
-    line.host.insertBefore(box, line.host.firstChild);
+    host.insertBefore(box, host.firstChild);
   }
 
   function badgeOf(text, tone) {
@@ -180,10 +190,13 @@
       swap(box, "Check again", "warn", "The price list is over an hour old; check prices again before updating.");
       return;
     }
-    if (!line || CKB.compare(line, list, side).verdict !== "better") {
+    var result = line ? CKB.compare(line, list, side) : null;
+    if (!result || result.verdict !== "better") {
       swap(box, "Check again", "warn", "This line changed since it was marked; check prices again.");
       return;
     }
+    // A line with no product id of its own goes with the one its card has.
+    line.productID = result.id;
 
     writing = true;
     updates(true);
@@ -260,8 +273,12 @@
       return;
     }
     var lines = CKB.readCart(document, location.href, side).filter(function (l) {
-      return CKB.compare(l, list, side).verdict === "better" &&
-        document.querySelector('.ck-banner-line[data-line="' + l.lineID + '"] .ck-banner-update');
+      var result = CKB.compare(l, list, side);
+      if (result.verdict !== "better" || !document.querySelector('.ck-banner-line[data-line="' + l.lineID + '"] .ck-banner-update')) {
+        return false;
+      }
+      l.productID = result.id;
+      return true;
     });
     if (!lines.length) {
       return;
@@ -454,7 +471,7 @@
   // marked says whether every line the last marking marked still has it.
   function marked(lines) {
     return (!all || document.contains(all)) && lines.every(function (l) {
-      return !wanted[l.lineID] || !l.host || l.host.querySelector('.ck-banner-line[data-line="' + l.lineID + '"]');
+      return !wanted[l.lineID] || !(l.host || l.details) || (l.host && l.host.querySelector('.ck-banner-line[data-line="' + l.lineID + '"]'));
     });
   }
 

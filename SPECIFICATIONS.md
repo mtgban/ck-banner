@@ -25,7 +25,9 @@ row of buttons):
   year picker and *Download CSV*, writing every paid purchase that shipped or
   every paid sale that was completed.
 
-Both carts work for a visitor who is not signed in. The history pages are
+Both carts work for a visitor who is not signed in: such a cart has no *Save
+for Later*, and with it no product ids, so each line is found in the price
+list by its card (section 6). The history pages are
 shown only to a signed-in account.
 
 ## 2. Where it runs
@@ -46,12 +48,12 @@ form. For each:
 
 | Field | Where |
 |-------|-------|
-| product id | `.save-for-later-button a[data-ckproductid]`, the same id as the price list's `id` |
+| product id | `.save-for-later-button a[data-ckproductid]`, the same id as the price list's `id`; a signed-out cart has none |
 | line id | the quantity form's action, read with `new URL(action, location.href)`; the pathname must be `/sellcart/lineitem/<digits>` (actions appear both relative and absolute) |
 | quantity | that form's hidden `input[name="qty"]`, never the visible dropdown (lines with 100 or more available show a text box instead) |
 | price each | `.item-price-wrapper small`, text `$1.50 /ea` |
 | line total | the text before the `<br>` in `.item-price-wrapper`; it must equal quantity x price each, or the line is unreadable |
-| identity | the first `img[alt]`: `Edition[ Foil]: Name[ (Variation)]`, which equals the price list's `edition`, `name` and `variation` for the line's id; a foil's edition may be written with " Foil" or plain |
+| identity | the edition (`.edition`, rarity aside) and title (`.title`): `Edition[ Foil]` and `Name[ (Variation)]`, which equal the price list's `edition`, `name` and `variation` for the line's id; a foil's edition may be written with " Foil" or plain. The image's alt text names the card the same way but CK cuts a long one short with "..." |
 | foil | CK's own FOIL label under the title (`div.foil`), which agrees with the list's `is_foil` |
 
 Every field comes from the same wrapper, or the line is unreadable.
@@ -60,9 +62,10 @@ The *Saved For Later* section under the cart belongs to the purchase side (its
 routes end in `/purchase`, its prices are retail) and is ignored. Its *Move
 All To Cart* button sits in a `.save-for-later-button` with a
 `data-ckproductid` of its own, which is why a line is known by its quantity
-form and not by a product id. A line that cannot be read whole (no product
-id, quantity or price, a total that is not quantity times price, no card
-name) is kept with the reason, so it can be marked rather than dropped.
+form and not by a product id. A line that cannot be read whole (no
+quantity or price, a total that is not quantity times price, no card name)
+is kept with the reason, so it can be marked rather than dropped. A line
+with no product id is read whole: the list finds it by its card.
 
 ### 3.2 Cash, not credit
 
@@ -96,13 +99,14 @@ The list is about 70 MB and 151,000 rows (the 2026-09-17 list). On arrival
 it is reduced to arrays sorted by id, about 7 MB: `price_buy` in integer
 cents and `qty_buying` for the sell cart; each condition's retail price and
 quantity from `condition_values` for the buy cart; and a 32-bit key of the
-card, its name as the carts' images spell it and whether it is foil, which
-checks that a line's product id points at the card the line shows. An image
-writes a foil's edition with " Foil" ("2015 Core Set Foil: Jace, the Living
-Guildpact") or leaves it plain ("Promotional: Mutavault (Extended Art
-Foil)"), so the key drops a " Foil" before the edition's colon on both sides
-and takes foil from the line's own FOIL label. On every line of three saved
-carts the names matched that way and the label agreed with `is_foil`. Prices must be plain dollars and at most two decimals. A row with
+card, `Edition: Name[ (Variation)]` and whether it is foil, which checks
+that a line's product id points at the card the line shows, and finds the
+row of a line with none. CK writes a foil's edition with " Foil" ("2015 Core
+Set Foil") or leaves it plain ("Promotional", for "Mutavault (Extended Art
+Foil)"), so the key drops a " Foil" ending the edition on both sides and
+takes foil from the line's own FOIL label. On every line of five saved carts
+(198 lines, 122 of them signed out) the cards matched that way, and on the
+signed-in ones the label agreed with `is_foil`. Prices must be plain dollars and at most two decimals. A row with
 any field of another shape is skipped and counted, and an id listed twice is
 dropped altogether, since which of its rows is right cannot be told. On the
 2026-09-17 list every one of the 151,487 rows was kept, every name was
@@ -150,11 +154,15 @@ and quantity for the line's condition:
 | list charges more | raised | amber "Price went up" |
 | equal | same | nothing |
 
-A line's id must name the card its image shows: the list row's key (section
-4) is checked against the line's `alt` and FOIL label, and a line whose id
-names another card is not compared. A line the list agrees with is left
-unmarked. Each other mark sits left of *Save for Later* in one row, never
-inside its link: a square badge as tall as CK's button, or *Update price*
+A line's id must name the card it shows: the list row's key (section 4) is
+checked against the line's edition, title and FOIL label, and a line whose
+id names another card is not compared. A line with no id (a signed-out
+cart) is the one row with its card's key; when no row has it, or two do, it
+is not listed. On the 2026-10-08 list one key was shared, by two cards of
+different names. A line the list agrees with is left unmarked. Each other
+mark sits left of *Save for Later* in one row, never inside its link, or
+where *Save for Later* would be, in a box of the extension's own, on a line
+without one: a square badge as tall as CK's button, or *Update price*
 drawn exactly like *Save for Later*. Its tooltip is one line: on the sell
 cart what the buylist pays now ("Buylist currently pays $0.05."), the line
 showing its own; on the buy cart the list's price and the cart's ("List asks
@@ -415,5 +423,8 @@ that day, which CI never has.
   older than the cart.
 - What the history pages' 25 / 50 / 100 page-size choice does; the walk uses
   25 until that is known.
+- Whether *Update price* works on a signed-out cart. It sends the product id
+  the line's card has, as for any line; if CK refuses it, the line reads
+  "Not updated" and the cart locks (section 7).
 - Sealed lines in either cart.
 - Whether CK reprices a buy cart line on its own.
