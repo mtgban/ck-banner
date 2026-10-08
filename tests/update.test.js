@@ -72,6 +72,19 @@ describe("CK's answer decides", () => {
     expect(await CKB.updatePrice(line())).toEqual({ outcome: "repriced", lineID: 5550001, qty: 1, price: 2850, buy: 2850 });
   });
 
+  test("the line at its old price, CK paying no more now, is current", async () => {
+    // The list said more than CK pays: the line already has CK's price.
+    answer(ok(cart(item({ price: "27.00", product: { price_buy: "27.00" } }))));
+    expect(await CKB.updatePrice(line())).toMatchObject({ outcome: "current", price: 2700, buy: 2700 });
+    answer(ok(cart(item({ price: "27.00", product: { price_buy: "25.00" } }))));
+    expect(await CKB.updatePrice(line())).toMatchObject({ outcome: "current", price: 2700, buy: 2500 });
+  });
+
+  test("the line at a lower price than it had is lowered", async () => {
+    answer(ok(cart(item({ price: "25.00", product: { price_buy: "25.00" } }))));
+    expect(await CKB.updatePrice(line())).toMatchObject({ outcome: "lowered", price: 2500, buy: 2500 });
+  });
+
   test("the line at its quantity and the old price is kept", async () => {
     answer(ok(cart(item({ price: "27.00" }))));
     expect(await CKB.updatePrice(line())).toMatchObject({ outcome: "kept", price: 2700, buy: 2850 });

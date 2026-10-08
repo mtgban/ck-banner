@@ -141,6 +141,8 @@ First match wins:
 | id not in the list | not listed | grey `?` |
 | identity does not match the list row | mismatch | grey `?` |
 | `qty_buying` is 0 | wants 0 | amber "Wants 0" |
+| CK kept the line's price though it pays more (section 7) | kept | amber "Price kept" |
+| CK pays what the line has, though the list says more (section 7) | current | grey "Price is current" |
 | list pays more | better | *Update price* (section 7) |
 | list pays less | worse | amber "Keep price" |
 | equal | same | nothing |
@@ -200,11 +202,21 @@ the line is its one NM line for the product, read for `qty`, `price` and
 
 | Answer for the line | Shown | Then |
 |---------------------|-------|------|
-| `qty` is q and `price` equals `product.price_buy` | the button stays "Updating" | the page reloads to show CK's own figures |
-| `qty` is q, `price` is not `product.price_buy` | amber "Price kept": "Card Kingdom kept $Y each. Remove the card and add it again to take $X each." | nothing more is sent |
+| `qty` is q and `price` above what the line had | the button stays "Updating" | the page reloads to show CK's own figures |
+| `qty` is q, `price` as it was, `product.price_buy` above it | amber "Price kept": "Card Kingdom kept $Y each. Remove the card and add it again to take $X each." | nothing more is sent |
+| `qty` is q, `price` as it was, `product.price_buy` not above it | grey "Price is current": "Card Kingdom pays $X each now, not the $L each the price list said; the cart keeps its price." | nothing more is sent: the list was out of date for this card |
+| `qty` is q and `price` below what the line had | red "Price lowered": "Card Kingdom lowered this line to $X each from $Y each, though the price list said $L each" | as the last row |
 | `qty` is not q | the button stays "Updating" | q is put back through the line's own quantity form (`POST /sellcart/lineitem/<id>`, an absolute `qty` and the form's `_token`, as the cart page does), to the line id CK's answer names; then the page reloads |
 | `qty` is not q, and putting q back is refused or unanswered | red "Not updated": "Card Kingdom set this line to N, and putting back q failed" | as the row below |
 | no single NM line for the product, not 200, not JSON, no answer, a Cloudflare challenge | red "Not updated" with the reason | the panel says to reload; every other *Update price* stays disabled until then, since the cart may no longer be what the page shows |
+
+`product.price_buy` is what CK pays for the card now, which the price list,
+rebuilt about hourly, may not yet say. Every answer's is kept, by product id,
+against the list in hand (beside it in IndexedDB) and outranks that list on
+this page and the next: a line CK kept stays "Price kept", and a line
+already at CK's price is "Price is current", rather than offering *Update
+price* again. A newer list carries CK's prices itself, so reading one drops
+what was kept.
 
 While a request runs, every *Update price* and *Refresh* is disabled, the
 page asks before it is left, and Escape does not stop it. An update that

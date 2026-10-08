@@ -13,6 +13,7 @@ globalThis.CKB = globalThis.CKB || {};
   var DB = "ck-banner";
   var STORE = "cache";
   var LIST = "pricelist";
+  var SEEN = "seen";
 
   // TTL is how long a list is fresh. At exactly an hour it is stale.
   CKB.LIST_TTL = 3600000;
@@ -134,5 +135,23 @@ globalThis.CKB = globalThis.CKB || {};
 
   CKB.keepList = function (store, list) {
     return store.put(LIST, list);
+  };
+
+  // keptSeen is what CK's answers to Update price said it pays now, by
+  // product id, against the list built at createdAt: an empty record for
+  // any other list, since a newer one has CK's prices in it.
+  CKB.keptSeen = function (store, createdAt) {
+    return store.get(SEEN).then(
+      function (seen) {
+        return seen && seen.createdAt === createdAt && seen.prices && typeof seen.prices === "object" ? seen.prices : {};
+      },
+      function () {
+        return {};
+      }
+    );
+  };
+
+  CKB.keepSeen = function (store, createdAt, prices) {
+    return store.put(SEEN, { createdAt: createdAt, prices: prices });
   };
 })(globalThis.CKB);

@@ -35,11 +35,13 @@ globalThis.CKB = globalThis.CKB || {};
 
   // compare answers with { verdict, price, id }, price being the list's
   // price each in cents and id the line's product id wherever the line was
-  // compared.
+  // compared. seen, when given, is what CK's answers to Update price said
+  // it pays now, by product id ({ buy, kept }), which outranks the list.
   //
-  // Sell: unreadable, unlisted, mismatch, wants0, better, worse, same.
+  // Sell: unreadable, unlisted, mismatch, wants0, kept, current, better,
+  //       worse, same.
   // Buy:  unreadable, unlisted, mismatch, nostock, dropped, raised, same.
-  CKB.compare = function (line, list, side) {
+  CKB.compare = function (line, list, side, seen) {
     if (line.problem) {
       return { verdict: "unreadable" };
     }
@@ -53,7 +55,17 @@ globalThis.CKB = globalThis.CKB || {};
       if (row.wants === 0) {
         return { verdict: "wants0", price: row.buy, id: row.id };
       }
-      var pays = row.buy;
+      var live = seen && seen[row.id];
+      var pays = live ? live.buy : row.buy;
+      // CK kept the line's price though it pays more: Update price cannot
+      // take the new one, only removing the card and adding it again can.
+      if (live && live.kept && pays > line.each) {
+        return { verdict: "kept", price: pays, id: row.id };
+      }
+      // The line already has what CK pays now, though the list said more.
+      if (live && pays !== row.buy && pays === line.each) {
+        return { verdict: "current", price: pays, listed: row.buy, id: row.id };
+      }
       return { verdict: pays > line.each ? "better" : pays < line.each ? "worse" : "same", price: pays, id: row.id };
     }
 
