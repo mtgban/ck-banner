@@ -21,8 +21,8 @@ const moved = () =>
 
 describe("the panel", () => {
   test("appears on the sell cart and the buy cart", async () => {
-    expect((await mountCart()).heading()).toBe("CK BANner - prices");
-    expect((await mountCart({ side: "buy" })).heading()).toBe("CK BANner - prices");
+    expect((await mountCart()).heading()).toBe("CK BANner");
+    expect((await mountCart({ side: "buy" })).heading()).toBe("CK BANner");
   });
 
   test("offers to check, and says what checking does", async () => {
@@ -263,7 +263,7 @@ describe("stopping and failing", () => {
     expect(it.busy()).toBe(false);
     expect(it.leaving()).toBe(false);
     expect(it.marks()).toEqual([]);
-    expect(it.heading()).toBe("CK BANner - prices");
+    expect(it.heading()).toBe("CK BANner");
     expect(await it.kept()).toBeNull();
   });
 
@@ -279,7 +279,7 @@ describe("stopping and failing", () => {
     release(moved());
     await it.settle();
     expect(it.marks()).toEqual([]);
-    expect(it.heading()).toBe("CK BANner - prices");
+    expect(it.heading()).toBe("CK BANner");
     expect(await it.kept()).toBeNull();
   });
 

@@ -629,7 +629,7 @@
   function idle() {
     csv.disabled = true;
     panel.jump(null);
-    panel.word("prices");
+    panel.word("");
     panel.clear();
     panel.hint("Compare this cart with Card Kingdom's price list, read once and kept for an hour");
   }
