@@ -268,15 +268,15 @@
   {
     "guard": "the list is fetched without cookies",
     "file": "src/prices.js",
-    "find": "{ credentials: \"omit\", signal: controller.signal }",
-    "replace": "{ credentials: \"include\", signal: controller.signal }",
+    "find": "    return { credentials: \"omit\", signal: signal };",
+    "replace": "    return { credentials: \"include\", signal: signal };",
     "expectFailing": "asks without cookies or custom headers, so no preflight"
   },
   {
     "guard": "the list is fetched without custom headers",
     "file": "src/prices.js",
-    "find": "{ credentials: \"omit\", signal: controller.signal }",
-    "replace": "{ credentials: \"omit\", headers: { Accept: \"application/json\" }, signal: controller.signal }",
+    "find": "    return { credentials: \"omit\", signal: signal };",
+    "replace": "    return { credentials: \"omit\", headers: { Accept: \"application/json\" }, signal: signal };",
     "expectFailing": "asks without cookies or custom headers, so no preflight"
   },
   {
@@ -457,8 +457,8 @@
   {
     "guard": "only one update runs at a time",
     "file": "src/cartpage.js",
-    "find": "    if (writing || locked || reading) {\n      return;\n    }\n    var line = CKB.readCart",
-    "replace": "    if (locked || reading) {\n      return;\n    }\n    var line = CKB.readCart",
+    "find": "    if (writing || locked || reading || peeking) {\n      return;\n    }\n    latest(function () {",
+    "replace": "    if (locked || reading || peeking) {\n      return;\n    }\n    latest(function () {",
     "expectFailing": "a second update waits for the first even if its button is enabled again"
   },
   {
@@ -674,7 +674,7 @@
   {
     "guard": "Refresh is greyed out while the list is fresh",
     "file": "src/cartpage.js",
-    "find": "button.disabled = left > 0;",
+    "find": "button.disabled = left > 0 && !newer;",
     "replace": "button.disabled = false;",
     "expectFailing": "Refresh is greyed out while the list is fresh, and comes back as it ages"
   },
@@ -789,5 +789,75 @@
     "find": "      return row ? row.id : l.productID;",
     "replace": "      return l.productID;",
     "expectFailing": "gives a line with no product id both ids from its card"
+  },
+  {
+    "guard": "a peek reads the list's date",
+    "file": "src/prices.js",
+    "find": "var m = /^\\{\"meta\":\\{\"created_at\":\"([^\"]+)\"/.exec(head);",
+    "replace": "var m = [\"\", \"never\"];",
+    "expectFailing": "a fresh kept list marks the cart on load, then only peeks at the list's date"
+  },
+  {
+    "guard": "a newer list is read before updating",
+    "file": "src/cartpage.js",
+    "find": "      if (newer) {\n        check(then);\n      } else {\n        then();\n      }",
+    "replace": "      then();",
+    "expectFailing": "a newer list is read first, and a line no longer better sends nothing"
+  },
+  {
+    "guard": "a list read a while ago is checked",
+    "file": "src/cartpage.js",
+    "find": "if (!newer && Date.now() - checked < CKB.CHECK_GAP) {",
+    "replace": "if (!newer) {",
+    "expectFailing": "a list read a while ago is checked before sending"
+  },
+  {
+    "guard": "a list just read counts as checked",
+    "file": "src/cartpage.js",
+    "find": "            checked = Date.now();\n            newer = false;\n            noted(fetched.createdAt);",
+    "replace": "            newer = false;\n            noted(fetched.createdAt);",
+    "expectFailing": "a list just read is not checked again"
+  },
+  {
+    "guard": "Refresh comes back for a newer list",
+    "file": "src/cartpage.js",
+    "find": "button.disabled = left > 0 && !newer;",
+    "replace": "button.disabled = left > 0;",
+    "expectFailing": "a kept list CK has a newer one of brings Refresh back, and says so"
+  },
+  {
+    "guard": "Update all checks the list first",
+    "file": "src/cartpage.js",
+    "find": "    latest(updateEvery);",
+    "replace": "    updateEvery();",
+    "expectFailing": "Update all reads a newer list first"
+  },
+  {
+    "guard": "a peek stops at the list's date",
+    "file": "src/prices.js",
+    "find": "            if (m || part.done || head.length >= PEEK_BYTES) {",
+    "replace": "            if (part.done) {",
+    "expectFailing": "a peek asks the same way and reads only the list's date"
+  },
+  {
+    "guard": "a recent check is believed on the next page",
+    "file": "src/cartpage.js",
+    "find": "              if (check && Date.now() - check.at < CKB.CHECK_GAP) {",
+    "replace": "              if (false) {",
+    "expectFailing": "a page opened again soon after a check does not check again"
+  },
+  {
+    "guard": "a check is kept for the next page",
+    "file": "src/store.js",
+    "find": "    return store.put(CHECKED, { createdAt: createdAt, at: at, newer: newer });",
+    "replace": "    return Promise.resolve();",
+    "expectFailing": "a page opened again soon after a check does not check again"
+  },
+  {
+    "guard": "a 429 says CK is limiting requests",
+    "file": "src/prices.js",
+    "find": "    return status === 429 ? CKB.LIST_LIMITED : ",
+    "replace": "    return ",
+    "expectFailing": "a refusal says what it was"
   }
 ]

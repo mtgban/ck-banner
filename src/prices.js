@@ -16,8 +16,20 @@ globalThis.CKB = globalThis.CKB || {};
   // checks measure the download in Chrome and Firefox.
   var TIMEOUT = 120000;
 
+  // A peek reads no further than PEEK_BYTES for created_at, and gives up
+  // after PEEK_TIMEOUT.
+  var PEEK_BYTES = 4096;
+  var PEEK_TIMEOUT = 15000;
+
   CKB.LIST_TIMED_OUT = "Card Kingdom's price list did not arrive in time";
   CKB.LIST_UNREADABLE = "Card Kingdom's price list could not be read";
+  CKB.LIST_LIMITED = "Card Kingdom is limiting requests for its price list; try again in a few minutes";
+
+  // answered says why the list was refused: 429 is CK limiting how often
+  // one address may ask for it.
+  function answered(status) {
+    return status === 429 ? CKB.LIST_LIMITED : "Card Kingdom's price list answered " + status;
+  }
 
   // The version of the kept shape; a kept list of another is read as none.
   CKB.LIST_VERSION = 3;
@@ -249,6 +261,60 @@ globalThis.CKB = globalThis.CKB || {};
     return null;
   };
 
+  // listRequest is how the list is asked for: with no cookies and no custom
+  // headers, so the request needs no preflight.
+  function listRequest(signal) {
+    return { credentials: "omit", signal: signal };
+  }
+
+  // peekList answers with the created_at of the list CK serves now. The
+  // body opens with it, so only its first bytes are read before the rest is
+  // cancelled: a few kilobytes of the ten megabytes the whole list takes.
+  // The Last-Modified header is no guide: it moves whenever Cloudflare
+  // fetches the list again, about every ten minutes, while created_at stays.
+  CKB.peekList = function () {
+    var controller = new AbortController();
+    var timer = setTimeout(function () {
+      controller.abort();
+    }, PEEK_TIMEOUT);
+    return fetch(CKB.PRICELIST, listRequest(controller.signal))
+      .then(function (response) {
+        if (!response.ok || !response.body) {
+          throw new Error(answered(response.status));
+        }
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var head = "";
+        function more() {
+          return reader.read().then(function (part) {
+            if (!part.done) {
+              head += decoder.decode(part.value, { stream: true });
+            }
+            var m = /^\{"meta":\{"created_at":"([^"]+)"/.exec(head);
+            if (m || part.done || head.length >= PEEK_BYTES) {
+              controller.abort();
+              if (!m) {
+                throw new Error(CKB.LIST_UNREADABLE);
+              }
+              return m[1];
+            }
+            return more();
+          });
+        }
+        return more();
+      })
+      .then(
+        function (createdAt) {
+          clearTimeout(timer);
+          return createdAt;
+        },
+        function (err) {
+          clearTimeout(timer);
+          throw err;
+        }
+      );
+  };
+
   // fetchList reads and reduces the list. options.signal aborts it (Escape);
   // options.timeout bounds it. A read that was aborted rejects with the
   // browser's AbortError, which a caller treats as cancelled, not failed.
@@ -270,10 +336,10 @@ globalThis.CKB = globalThis.CKB || {};
       }
     }
 
-    return fetch(CKB.PRICELIST, { credentials: "omit", signal: controller.signal })
+    return fetch(CKB.PRICELIST, listRequest(controller.signal))
       .then(function (response) {
         if (!response.ok) {
-          throw new Error("Card Kingdom's price list answered " + response.status);
+          throw new Error(answered(response.status));
         }
         return response.json().catch(function () {
           throw new Error(CKB.LIST_UNREADABLE);
