@@ -472,8 +472,9 @@ def clone(node, parent):
     return copy
 
 
-def finish(items, lines, heading, private):
-    """Recounts the header, renumbers ids, and writes the cart out checked."""
+def finish(items, lines, heading, private, sidebar=None):
+    """Recounts the header, renumbers ids, and writes the cart out checked,
+    with the sidebar after it when one is given."""
     qty = sum(int(only((n for n in walk(l) if n.tag == "input" and n.attr("name") == "qty"), "quantity").attr("value")) for l in lines)
     total = 0
     for line in lines:
@@ -486,12 +487,14 @@ def finish(items, lines, heading, private):
         node.kids = [k for k in node.kids if not (isinstance(k, Node) and (classed(k, "bottom-button-mobile") or classed(k, "bottom-button-desktop")))]
 
     names = CartNames()
-    for node in walk(items):
+    for node in [n for root in (items, sidebar) if root for n in walk(root)]:
         if node.tag == "input" and node.attr("name") == "_token":
             private.append(node.attr("value"))
             node.attrs = [(k, "TOKEN" if k == "value" else v) for k, v in node.attrs]
         node.attrs = [(k, names.url(v) if k in ("href", "action") and v else v) for k, v in node.attrs]
     out = serialize(items, Verbatim())
+    if sidebar:
+        out += " " + serialize(sidebar, Verbatim())
     numbers = [p for p in private + list(names.ids) if p.isdigit()]
     check(out, [p for p in private if not p.isdigit()])
     left = [n for n in numbers if re.search(r"\b" + n + r"\b", out)]
@@ -537,7 +540,20 @@ def cut_sell(path, catalogue):
         node.attrs = [(k, str(catalogue.draw("plain", "buy", 1)["id"]) if k == "data-ckproductid" else v) for k, v in node.attrs]
     keep_only(saved, shelf + rest)
     only((n for n in walk(saved) if n.tag == "h1"), "saved heading").kids = [f"Saved For Later ({SAVED_ITEMS} items)"]
-    return finish(items, kept, "Sell Cart", private)
+
+    # The sidebar keeps its summary's buttons (Checkout, Empty Cart) and
+    # none of its figures, which are the account's, or its help text.
+    sidebar = only((n for n in walk(root) if n.tag == "div" and classed(n, "cart-sidebar")), "cart sidebar")
+    well = only((n for n in walk(sidebar) if classed(n, "well")), "cart summary")
+    buttons = [k for k in well.kids if isinstance(k, Node) and classed(k, "cart-button-padding")]
+    if len(buttons) != 2 or not any(n.tag == "form" and (n.attr("action") or "").endswith("/sellcart/empty_cart") for n in walk(buttons[1])):
+        sys.exit("the cart summary does not end in Checkout and Empty Cart")
+    well.kids = [buttons[0], " ", buttons[1]]
+    if well.parent.parent is not sidebar:
+        sys.exit("the cart summary is not where it was")
+    well.parent.kids = [well]
+    sidebar.kids = [well.parent]
+    return finish(items, kept, "Sell Cart", private, sidebar)
 
 
 def cut_buy(path, catalogue):
