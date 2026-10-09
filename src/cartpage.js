@@ -72,10 +72,12 @@
   // id, against the list in hand (store.js keeps it).
   var seen = {};
   // checked is when CK last said which list it serves, and newer whether
-  // that is a newer one than the list in hand; peeking is a check running.
+  // that is a newer one than the list in hand; peeking is a check an update
+  // waits for, and asking one nothing waits for.
   var checked = 0;
   var newer = false;
   var peeking = false;
+  var asking = null;
 
   // A list checked with CK this recently is taken as its latest, on this
   // page or the next. Cloudflare holds the list about ten minutes, so a
@@ -231,6 +233,57 @@
         return CKB.keepCheck(s, createdAt, checked, newer);
       })
       .catch(function () {});
+  }
+
+  // ask asks CK whether it has a newer list than the one in hand, unless
+  // it said in the last few minutes, here or on another page, or is being
+  // asked already, and shows the answer once no other work holds the panel.
+  function ask(s) {
+    if (asking) {
+      return asking;
+    }
+    var asked = list;
+    var told = function (at, isNewer) {
+      if (list !== asked || reading) {
+        return false;
+      }
+      checked = at;
+      newer = isNewer;
+      if (!writing && !peeking) {
+        lastSummary();
+      }
+      return true;
+    };
+    var done = function () {
+      asking = null;
+    };
+    asking = CKB.keptCheck(s, asked.createdAt).then(function (check) {
+      if (check && Date.now() - check.at < CKB.CHECK_GAP) {
+        told(check.at, check.newer);
+        return null;
+      }
+      return CKB.peekList().then(function (createdAt) {
+        if (told(Date.now(), createdAt !== asked.createdAt)) {
+          noted(asked.createdAt);
+        }
+      });
+    });
+    asking.then(done, done);
+    return asking;
+  }
+
+  // back runs when the page is shown again. A timer does not count the
+  // time the computer slept, so the hour may be up already, and CK may
+  // have built a newer list since it last said.
+  function back() {
+    if (document.hidden || !list || reading || writing || peeking) {
+      return;
+    }
+    refreshable();
+    // A page that refused an update keeps saying so until it is reloaded.
+    if (!locked && !newer && CKB.fresh(list, Date.now())) {
+      store.then(ask).catch(function () {});
+    }
   }
 
   // latest calls then once the list in hand is the one CK serves now: at
@@ -762,24 +815,8 @@
             list = kept;
             seen = prices;
             annotate();
-            // Marked at once; CK then says whether it has a newer list,
-            // unless it said so a few minutes ago.
-            return CKB.keptCheck(s, kept.createdAt).then(function (check) {
-              if (check && Date.now() - check.at < CKB.CHECK_GAP) {
-                checked = check.at;
-                newer = check.newer;
-                lastSummary();
-                return null;
-              }
-              return CKB.peekList().then(function (createdAt) {
-                if (list === kept && !reading) {
-                  checked = Date.now();
-                  newer = createdAt !== kept.createdAt;
-                  noted(kept.createdAt);
-                  lastSummary();
-                }
-              });
-            });
+            // Marked at once; CK then says whether it has a newer list.
+            return ask(s);
           });
         });
       })
@@ -793,6 +830,7 @@
         }
       }
     });
+    document.addEventListener("visibilitychange", back);
 
     var pending = null;
     new MutationObserver(function () {

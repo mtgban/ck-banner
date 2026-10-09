@@ -133,7 +133,8 @@ held for the page's life and the tooltip says so.
 
 CK rebuilds its list about hourly (`created_at` 11:08, then 12:08, on
 2026-10-08), so a list kept for an hour can be behind CK's. A cart opened
-with a kept list is marked from it at once, and then peeks: one request
+with a kept list is marked from it at once, and then peeks, and so does a
+cart shown again after its tab was in the background: one request
 reads the body's first bytes, which open with `created_at`, and cancels the
 rest, a few kilobytes of the ten megabytes the whole list takes. When CK
 serves a newer list, *Refresh* comes back and the tooltip says "a newer one
@@ -416,8 +417,10 @@ marked, and *CSV* (section 11), greyed out until a list is in hand. The
 whole list is read only on that click, or before an update when CK has a
 newer one (section 7), and *Refresh* is greyed out while the list in hand is
 fresh, since reading it again would change nothing, until the hour runs out
-or CK serves a newer one (section 5). Until a list is in hand the heading is
-the name alone. While it reads the heading says
+or CK serves a newer one (section 5). A timer brings it back at the hour,
+and the clock is read again whenever the tab is shown, since a timer does
+not count the time the computer slept. Until a list is in hand the heading
+is the name alone. While it reads the heading says
 `fetching API`. Done, the heading counts the lines the list now favours in the same
 word on both carts (`3 better`), or says `ready`, beside a tick. While it
 counts any, the count is a control: each click, or Enter, scrolls to the

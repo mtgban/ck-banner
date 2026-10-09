@@ -842,8 +842,8 @@
   {
     "guard": "a recent check is believed on the next page",
     "file": "src/cartpage.js",
-    "find": "              if (check && Date.now() - check.at < CKB.CHECK_GAP) {",
-    "replace": "              if (false) {",
+    "find": "      if (check && Date.now() - check.at < CKB.CHECK_GAP) {",
+    "replace": "      if (false) {",
     "expectFailing": "a page opened again soon after a check does not check again"
   },
   {
@@ -859,5 +859,47 @@
     "find": "    return status === 429 ? CKB.LIST_LIMITED : ",
     "replace": "    return ",
     "expectFailing": "a refusal says what it was"
+  },
+  {
+    "guard": "a page shown again listens for being shown",
+    "file": "src/cartpage.js",
+    "find": "    document.addEventListener(\"visibilitychange\", back);\n",
+    "replace": "",
+    "expectFailing": "a page shown again after the computer slept through the hour brings Refresh back"
+  },
+  {
+    "guard": "a page shown again reads the clock again",
+    "file": "src/cartpage.js",
+    "find": "    refreshable();\n    // A page that refused",
+    "replace": "    // A page that refused",
+    "expectFailing": "a page shown again after the computer slept through the hour brings Refresh back"
+  },
+  {
+    "guard": "a list past the hour is not checked with CK",
+    "file": "src/cartpage.js",
+    "find": "if (!locked && !newer && CKB.fresh(list, Date.now())) {",
+    "replace": "if (!locked && !newer) {",
+    "expectFailing": "a page shown again after the computer slept through the hour brings Refresh back"
+  },
+  {
+    "guard": "a page going to the background asks nothing",
+    "file": "src/cartpage.js",
+    "find": "if (document.hidden || !list || reading",
+    "replace": "if (!list || reading",
+    "expectFailing": "a page shown again a while after CK last said asks again"
+  },
+  {
+    "guard": "a page that refused an update keeps saying so when shown again",
+    "file": "src/cartpage.js",
+    "find": "if (!locked && !newer && CKB.fresh(",
+    "replace": "if (!newer && CKB.fresh(",
+    "expectFailing": "a failed update locks every other until the page is reloaded"
+  },
+  {
+    "guard": "a check already asking is not asked again",
+    "file": "src/cartpage.js",
+    "find": "    if (asking) {\n      return asking;\n    }\n",
+    "replace": "",
+    "expectFailing": "a page opened in the background and shown while it asks does not ask twice"
   }
 ]

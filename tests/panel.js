@@ -261,6 +261,17 @@ export async function mountCart({ side = "sell", path, body, prices = pricelist(
       host.innerHTML = host.querySelector("a").outerHTML;
     },
     escape: () => doc.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape" })),
+    // later moves the page's clock on by ms and leaves its timers where they
+    // were, as when the computer sleeps.
+    later: (ms) => {
+      const now = window.Date.now;
+      window.Date.now = () => now() + ms;
+    },
+    // shown is the tab going to the background (false) or coming back.
+    shown: (on) => {
+      Object.defineProperty(doc, "hidden", { value: !on, configurable: true });
+      doc.dispatchEvent(new window.Event("visibilitychange"));
+    },
     leaving: () => {
       const event = new window.Event("beforeunload", { cancelable: true });
       window.dispatchEvent(event);

@@ -230,6 +230,61 @@ describe("the hour", () => {
     expect(it.tip().endsWith("Price list of 2026-09-17 04:04; a newer one is out")).toBe(true);
   });
 
+  test("a page shown again after the computer slept through the hour brings Refresh back", async () => {
+    const it = await mountCart({ kept: CKB.reducePrices(moved(), Date.now()) });
+    await it.idle();
+    expect(it.button().disabled).toBe(true);
+    it.later(CKB.LIST_TTL);
+    it.shown(true);
+    await it.idle();
+    expect(it.button().disabled).toBe(false);
+    // Over the hour, Refresh is back without asking CK anything.
+    expect(it.asked.length).toBe(1);
+  });
+
+  test("a page shown again a while after CK last said asks again", async () => {
+    const newer = moved();
+    newer.meta.created_at = "2026-09-17 05:04:00";
+    const served = [moved(), newer];
+    const it = await mountCart({
+      kept: CKB.reducePrices(moved(), Date.now()),
+      respond: (resolve) => resolve(new Response(JSON.stringify(served.shift()), { status: 200 })),
+    });
+    await it.idle();
+    expect(it.asked.length).toBe(1);
+    expect(it.button().disabled).toBe(true);
+    it.later(it.window.CKB.CHECK_GAP);
+    it.shown(false);
+    await it.idle();
+    expect(it.asked.length).toBe(1);
+    it.shown(true);
+    await it.idle();
+    expect(it.asked.length).toBe(2);
+    expect(it.button().disabled).toBe(false);
+    expect(it.tip().endsWith("Price list of 2026-09-17 04:04; a newer one is out")).toBe(true);
+  });
+
+  test("a page opened in the background and shown while it asks does not ask twice", async () => {
+    const answers = [];
+    const it = await mountCart({ kept: CKB.reducePrices(moved(), Date.now()), respond: (resolve) => answers.push(resolve) });
+    it.shown(true);
+    await it.idle();
+    expect(it.asked.length).toBe(1);
+    answers[0](new Response(JSON.stringify(moved()), { status: 200 }));
+    await it.idle();
+    expect(it.asked.length).toBe(1);
+    expect(it.button().disabled).toBe(true);
+  });
+
+  test("a page shown again soon after a check does not ask again", async () => {
+    const it = await mountCart({ kept: CKB.reducePrices(moved(), Date.now()) });
+    await it.idle();
+    it.shown(true);
+    await it.idle();
+    expect(it.asked.length).toBe(1);
+    expect(it.button().disabled).toBe(true);
+  });
+
   test("a stale kept list marks nothing and asks for nothing", async () => {
     const it = await mountCart({ kept: CKB.reducePrices(moved(), Date.now() - CKB.LIST_TTL) });
     expect(it.asked).toEqual([]);
@@ -491,6 +546,9 @@ describe("Update price", () => {
     await it.idle();
     expect(it.written.length).toBe(1);
     expect(it.reloads).toEqual([]);
+    it.shown(true);
+    await it.idle();
+    expect(it.failed()).toBe(true);
   });
 
   test("a list that went stale since it was read sends nothing", async () => {
