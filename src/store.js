@@ -140,11 +140,22 @@ globalThis.CKB = globalThis.CKB || {};
 
   // keptSeen is what CK's answers to Update price said it pays now, by
   // product id, against the list built at createdAt: an empty record for
-  // any other list, since a newer one has CK's prices in it.
+  // any other list, since a newer one has CK's prices in it. It is a copy
+  // the caller may add to: in Firefox what a content script reads from
+  // IndexedDB belongs to the page, which refuses the script's own objects.
   CKB.keptSeen = function (store, createdAt) {
     return store.get(SEEN).then(
       function (seen) {
-        return seen && seen.createdAt === createdAt && seen.prices && typeof seen.prices === "object" ? seen.prices : {};
+        var prices = {};
+        if (seen && seen.createdAt === createdAt && seen.prices && typeof seen.prices === "object") {
+          Object.keys(seen.prices).forEach(function (id) {
+            var price = seen.prices[id];
+            if (price && typeof price.buy === "number") {
+              prices[id] = { buy: price.buy, kept: price.kept === true };
+            }
+          });
+        }
+        return prices;
       },
       function () {
         return {};

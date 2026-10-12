@@ -225,6 +225,7 @@ the line is its one NM line for the product, read for `qty`, `price` and
 | `qty` is not q | the button stays "Updating" | q is put back through the line's own quantity form (`POST /sellcart/lineitem/<id>`, an absolute `qty` and the form's `_token`, as the cart page does), to the line id CK's answer names; then the page reloads |
 | `qty` is not q, and putting q back is refused or unanswered | red "Not updated": "Card Kingdom set this line to N, and putting back q failed" | as the row below |
 | no single NM line for the product, not 200, not JSON, no answer, a Cloudflare challenge | red "Not updated" with the reason | the panel says to reload; every other *Update price* stays disabled until then, since the cart may no longer be what the page shows |
+| the page itself fails on the answer | red "Not updated": "The page failed after Card Kingdom answered (reason)" | as the row above, so the panel is never left busy |
 
 `product.price_buy` is what CK pays for the card now, which the price list,
 rebuilt about hourly, may not yet say. Every answer's is kept, by product id,
@@ -232,7 +233,9 @@ against the list in hand (beside it in IndexedDB) and outranks that list on
 this page and the next: a line CK kept stays "Price kept", and a line
 already at CK's price is "Price is current", rather than offering *Update
 price* again. A newer list carries CK's prices itself, so reading one drops
-what was kept.
+what was kept. What is read back is copied before anything is added to it:
+in Firefox a content script gets what IndexedDB read as the page's own, and
+the page refuses the script's objects written into it.
 
 Before *Update price* or *Update all* sends anything, the list in hand must
 be the one CK serves: a list checked with CK in the last five minutes is
