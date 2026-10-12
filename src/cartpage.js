@@ -360,9 +360,13 @@
     panel.jump(null);
     panel.word("updating");
     panel.busy(true);
-    CKB.updatePrice(line).then(function (answer) {
-      answered(line, box, answer);
-    });
+    CKB.updatePrice(line)
+      .then(function (answer) {
+        return answered(line, box, answer);
+      })
+      .catch(function (err) {
+        broke(box, err);
+      });
   }
 
   function answered(line, box, answer) {
@@ -375,7 +379,7 @@
       return;
     }
     if (answer.outcome === "quantity") {
-      CKB.restoreQuantity(line, answer.lineID, line.qty).then(function (restored) {
+      return CKB.restoreQuantity(line, answer.lineID, line.qty).then(function (restored) {
         if (!restored) {
           refused(box, "Card Kingdom set this line to " + answer.qty + ", and putting back " + line.qty + " failed");
           return;
@@ -383,7 +387,6 @@
         panel.release();
         CKB.reload();
       });
-      return;
     }
     if (answer.outcome === "lowered") {
       lowered(line, box, answer);
@@ -446,6 +449,12 @@
     swap(box, badge || "Not updated", "bad", message + ". Reload the page to see what Card Kingdom holds.");
     lastSummary();
     panel.fail(message + ". Reload the page to see what Card Kingdom holds; no other update will be sent until then.");
+  }
+
+  // broke ends an update the page itself failed on once CK had answered as
+  // a refusal ends, rather than leaving the panel busy.
+  function broke(box, err) {
+    refused(box, "The page failed after Card Kingdom answered (" + (err && err.message ? err.message : String(err)) + ")");
   }
 
   // updateAll sends Update price's request for every line the list pays
@@ -520,7 +529,7 @@
           lowered(line, box, answer);
         } else if (answer.outcome === "quantity") {
           run.changed = true;
-          CKB.restoreQuantity(line, answer.lineID, line.qty).then(function (restored) {
+          return CKB.restoreQuantity(line, answer.lineID, line.qty).then(function (restored) {
             if (!restored) {
               refused(box, "Card Kingdom set this line to " + answer.qty + ", and putting back " + line.qty + " failed");
               return;
@@ -531,6 +540,9 @@
         } else {
           refused(box, answer.message);
         }
+      })
+      .catch(function (err) {
+        broke(box, err);
       });
   }
 

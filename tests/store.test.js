@@ -95,3 +95,27 @@ describe("a kept list of the wrong shape", () => {
     expect(CKB.fresh({}, NOW)).toBe(false);
   });
 });
+
+describe("CK's own prices", () => {
+  test("are kept for the list they were seen against", async () => {
+    const store = await CKB.openStore(new IDBFactory());
+    await CKB.keepSeen(store, "2026-09-17 04:04:00", { 206649: { buy: 2, kept: true } });
+    expect(await CKB.keptSeen(store, "2026-09-17 04:04:00")).toEqual({ 206649: { buy: 2, kept: true } });
+    expect(await CKB.keptSeen(store, "2026-09-17 05:04:00")).toEqual({});
+  });
+
+  test("are handed out as a copy that can be added to", async () => {
+    // Firefox gives a content script what IndexedDB read as the page's, and
+    // refuses the script's own objects written into it; frozen stands in.
+    const prices = Object.freeze({ 206649: Object.freeze({ buy: 2, kept: false }) });
+    const store = { get: () => Promise.resolve(Object.freeze({ createdAt: "2026-09-17 04:04:00", prices })) };
+    const seen = await CKB.keptSeen(store, "2026-09-17 04:04:00");
+    seen[224590] = { buy: 1, kept: true };
+    expect(seen).toEqual({ 206649: { buy: 2, kept: false }, 224590: { buy: 1, kept: true } });
+  });
+
+  test("an entry of another shape is left out", async () => {
+    const store = { get: () => Promise.resolve({ createdAt: "x", prices: { 1: { buy: 2 }, 2: null, 3: { buy: "2" } } }) };
+    expect(await CKB.keptSeen(store, "x")).toEqual({ 1: { buy: 2, kept: false } });
+  });
+});

@@ -485,8 +485,8 @@
   {
     "guard": "a wrong quantity is put back",
     "file": "src/cartpage.js",
-    "find": "\n      CKB.restoreQuantity(line, answer.lineID, line.qty).then(function (restored) {",
-    "replace": "\n      Promise.resolve(true).then(function (restored) {",
+    "find": "\n      return CKB.restoreQuantity(line, answer.lineID, line.qty).then(function (restored) {",
+    "replace": "\n      return Promise.resolve(true).then(function (restored) {",
     "expectFailing": "another quantity is put back through the line's own form, then the page reloads"
   },
   {
@@ -901,5 +901,33 @@
     "find": "    if (asking) {\n      return asking;\n    }\n",
     "replace": "",
     "expectFailing": "a page opened in the background and shown while it asks does not ask twice"
+  },
+  {
+    "guard": "CK's own prices are handed out as a copy",
+    "file": "src/store.js",
+    "find": "        return prices;\n      },",
+    "replace": "        return seen && seen.prices ? seen.prices : prices;\n      },",
+    "expectFailing": "are handed out as a copy that can be added to"
+  },
+  {
+    "guard": "a kept price of another shape is left out",
+    "file": "src/store.js",
+    "find": "if (price && typeof price.buy === \"number\") {",
+    "replace": "if (price) {",
+    "expectFailing": "an entry of another shape is left out"
+  },
+  {
+    "guard": "Update price never leaves the panel busy",
+    "file": "src/cartpage.js",
+    "find": "        return answered(line, box, answer);\n      })\n      .catch(function (err) {\n        broke(box, err);\n      });",
+    "replace": "        return answered(line, box, answer);\n      });",
+    "expectFailing": "a page that fails once CK answered says so, rather than hanging"
+  },
+  {
+    "guard": "Update all never leaves the panel busy",
+    "file": "src/cartpage.js",
+    "find": "          refused(box, answer.message);\n        }\n      })\n      .catch(function (err) {\n        broke(box, err);\n      });",
+    "replace": "          refused(box, answer.message);\n        }\n      });",
+    "expectFailing": "stops, and says so, when the page fails once CK answered"
   }
 ]

@@ -532,6 +532,20 @@ describe("Update price", () => {
     expect(it.reloads).toEqual([]);
   });
 
+  test("a page that fails once CK answered says so, rather than hanging", async () => {
+    const it = await mountCart({ prices: moved(), writes: () => Promise.resolve(answer({ price: "27.00" })) });
+    // CK's answers cannot be kept, as when Firefox hands back the page's own.
+    it.window.CKB.keptSeen = () => Promise.resolve(Object.freeze({}));
+    it.button().click();
+    await it.idle();
+    it.update(206649).click();
+    await it.idle();
+    expect(it.busy()).toBe(false);
+    expect(it.failed()).toBe(true);
+    expect(it.mark(206649)).toMatchObject({ badge: "Not updated", tone: "bad" });
+    expect(it.mark(206649).tip.startsWith("The page failed after Card Kingdom answered (")).toBe(true);
+  });
+
   test("a failed update locks every other until the page is reloaded", async () => {
     const it = await mountCart({ prices: two(), writes: () => Promise.resolve({ ok: false, status: 503, json: () => Promise.resolve({}) }) });
     it.button().click();
@@ -679,6 +693,20 @@ describe("Update all", () => {
     expect(it.reloads.length).toBe(1);
     expect(it.button().disabled).toBe(true);
     expect(it.leaving()).toBe(false);
+  });
+
+  test("stops, and says so, when the page fails once CK answered", async () => {
+    const it = await mountCart({ prices: two(), writes: ck() });
+    it.window.CKB.keptSeen = () => Promise.resolve(Object.freeze({}));
+    it.button().click();
+    await it.idle();
+    it.all().querySelector("button").click();
+    await it.idle();
+    expect(it.written.length).toBe(1);
+    expect(it.busy()).toBe(false);
+    expect(it.failed()).toBe(true);
+    expect(it.mark(206649)).toMatchObject({ badge: "Not updated", tone: "bad" });
+    expect(it.reloads).toEqual([]);
   });
 
   test("sends one request at a time, and holds the page while it runs", async () => {
